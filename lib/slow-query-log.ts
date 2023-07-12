@@ -1,8 +1,9 @@
-import { Client, Pool } from 'pg';
+import { Pool } from 'pg';
 import { QUERIES } from './queries';
 import {
   AWS_CONTEXT,
   getProps,
+  LogRow,
   MetisSqlCollectorConfigs,
   MetisSqlCollectorOptions,
   REQUEST_ID,
@@ -16,28 +17,28 @@ import * as https from 'https';
 import { parse } from 'pg-connection-string';
 
 export class MetisSqlCollector {
-  private readonly connections: Client[] | Pool[];
-  // private readonly db: Pool;
+  private readonly db: Pool;
   private readonly configs: MetisSqlCollectorConfigs;
   private readonly logFetchInterval: number;
   private readonly metisExporterUrl: string;
   private readonly metisApiKey: string;
+  private readonly inDebug: boolean;
   // Set the first call to fetch logs from last 10 minutes
   private lastLogTime: string = new Date(new Date().getTime() - 10 * 60 * 1000).toISOString().replace('T', ' ');
 
   constructor(props: MetisSqlCollectorOptions = {}) {
     const options: MetisSqlCollectorOptions = getProps(props);
     const dbConfig = parse(options.connectionString);
-    // this.db = new Pool({ connectionString: options.connectionString });
+    this.db = new Pool({ connectionString: options.connectionString });
     this.logFetchInterval = options.logFetchInterval;
     this.metisExporterUrl = options.metisExportUrl;
     this.metisApiKey = options.metisApiKey;
     this.configs = { dbHost: dbConfig.host, serviceName: options.serviceName };
-    this.connections = options.connections;
+    this.inDebug = options.debug;
 
     this.enableSlowQueryLogs().then(async () => {
       await this.fetchLogs();
-      console.log('Done pg setup');
+      this.inDebug && console.log('Done pg setup');
     });
   }
 
@@ -49,36 +50,22 @@ export class MetisSqlCollector {
     return Promise.all(
       [...this.queries.enableLogs, this.queries.createLogFunction].map(async (setupQuery) => {
         try {
-          await this.connections[0]?.query(setupQuery);
+          await this.db.query(setupQuery);
         } catch (e) {}
       }),
     );
   }
 
   private async fetchLogs() {
-    this.connections.map((conn) => {
-      if (conn.constructor.name === 'Client') {
-        conn.on('notice', (notice) => {
-          console.log(notice);
-        });
-      } else if (conn.constructor.name === 'Pool' || conn.constructor.name === 'BoundPool') {
-        conn.on('connect', (client) => {
-          client.on('notice', (notice) => {
-            console.log(notice);
-          });
-        });
+    setInterval(async () => {
+      await this.db.query(this.queries.loadLogs);
+      const res = await this.db.query(this.queries.getLogs(this.lastLogTime));
+      if (res.rows.length) {
+        this.setLastLogTime(res.rows.at(-1));
+        const spans = this.parseLogs(res.rows);
+        await this.exportLogs(spans);
       }
-    });
-
-    // setInterval(async () => {
-    //   await this.db.query(this.queries.loadLogs);
-    //   const res = await this.db.query(this.queries.getLogs(this.lastLogTime));
-    //   if (res.rows.length) {
-    //     this.setLastLogTime(res.rows.at(-1));
-    //     const spans = this.parseLogs(res.rows);
-    //     await this.exportLogs(spans);
-    //   }
-    // }, this.logFetchInterval);
+    }, this.logFetchInterval);
   }
 
   private setLastLogTime(lastLog: any) {
@@ -87,66 +74,59 @@ export class MetisSqlCollector {
     }
   }
 
-  private parseLogs(rawLogs: any[]) {
-    return rawLogs.map((log) => {
-      try {
-        const { log_time: logTime, database_name: dbName, message } = log;
-        const [durationString, planObj] = message.split('plan:');
-        const parsed = JSON.parse(planObj);
-        const { ['Query Text']: query, ...plan } = parsed;
-        const { traceId, spanId } = this.parseContext(query);
-        const { duration, endTime } = this.parseDuration(logTime, durationString);
-        return JSON.stringify({
-          kind: 'SpanKind.CLIENT',
-          context: {
-            trace_id: traceId,
-            span_id: spanId,
-          },
-          start_time: logTime,
-          end_time: endTime,
-          duration: plan.Plan['Actual Total Time'] || duration,
-          attributes: {
-            ['db.statement.metis']: query,
-            ['db.statement.metis.plan']: JSON.stringify(plan),
-            ['db.name']: dbName,
-            ['db.system']: 'postgresql',
-            ['net.host.name']: this.configs.dbHost,
-            ['net.peer.name']: this.configs.dbHost,
-          },
-          resource: {
-            ['telemetry.sdk.language']: 'slow-query-log-collector',
-            ['service.name']: this.configs.serviceName,
-          },
-        });
-      } catch (e) {
-        console.log('Parse failed');
-        // TODO handle error
-      }
-    });
+  private parseLogs(rawLogs: LogRow[]) {
+    return rawLogs
+      .map((log) => {
+        if (log.message.includes('logs.postgres_logs')) return;
+        try {
+          const { log_time: logTime, database_name: dbName, message } = log;
+          const [durationString, planObj] = message.split('plan:');
+          const parsed = JSON.parse(planObj);
+          const { ['Query Text']: query, ...plan } = parsed;
+          const { traceId, spanId } = this.parseContext(query);
+          const { duration, endTime } = this.parseDuration(logTime, durationString);
+          return JSON.stringify({
+            kind: 'SpanKind.CLIENT',
+            context: {
+              trace_id: traceId,
+              span_id: spanId,
+            },
+            start_time: logTime,
+            end_time: endTime,
+            duration: plan.Plan['Actual Total Time'] || duration,
+            attributes: {
+              ['db.statement.metis']: query,
+              ['db.statement.metis.plan']: JSON.stringify(plan),
+              ['db.name']: dbName,
+              ['db.system']: 'postgresql',
+              ['net.host.name']: this.configs.dbHost,
+              ['net.peer.name']: this.configs.dbHost,
+            },
+            resource: {
+              ['telemetry.sdk.language']: 'slow-query-log-collector',
+              ['service.name']: this.configs.serviceName,
+            },
+          });
+        } catch (e) {
+          this.inDebug && console.log(`Parse failed: ${e}`);
+          return;
+        }
+      })
+      .filter((log) => log);
   }
 
   private parseContext(query: string) {
-    try {
-      const [_, traceparent] = query.split('traceparent=');
-      const [__, traceId, spanId] = traceparent.split('-');
-      return { traceId, spanId };
-    } catch (e) {
-      console.log('Parsing context failed');
-      // TODO handle error
-    }
+    const [_, traceparent] = query.split('traceparent=');
+    const [__, traceId, spanId] = traceparent.split('-');
+    return { traceId, spanId };
   }
 
   private parseDuration(startTime: string, durationString: string) {
-    try {
-      const [_, durationStr] = durationString.trim().split(' ');
-      const duration = parseFloat(durationStr);
-      const res = new Date(startTime);
-      res.setMilliseconds(res.getMilliseconds() + Math.floor(duration));
-      return { duration, endTime: res };
-    } catch (e) {
-      console.log('Parsing duration failed');
-      // TODO handle error
-    }
+    const [_, durationStr] = durationString.trim().split(' ');
+    const duration = parseFloat(durationStr);
+    const res = new Date(startTime);
+    res.setMilliseconds(res.getMilliseconds() + Math.floor(duration));
+    return { duration, endTime: res };
   }
 
   private async exportLogs(data: string[]) {
@@ -171,12 +151,10 @@ export class MetisSqlCollector {
         };
 
         if (res.statusCode >= 400) {
-          console.log('Res status is bad');
-          // TODO handle error with contexts
+          throw new Error(`Bad status code: ${res.statusCode}, ${JSON.stringify(contexts)}`);
         }
       } catch (e) {
-        console.log('Error in logs export');
-        // TODO handle error with contexts
+        this.inDebug && console.log(`Error in logs export: ${e}`);
       }
     }
   }

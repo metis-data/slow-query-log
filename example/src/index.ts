@@ -7,11 +7,13 @@ import { MetisSqlCollector } from '@metis-data/slow-query-log/dist';
 let client: Pool;
 let metis: MetisSqlCollector;
 async function setClient() {
-  const connectionString = process.env.CONNECTION_STRING;
+  const connectionString = process.env.DATABASE_URL;
   client = new Pool({ connectionString });
   await client.connect();
+
+  // Enable for seed, replace $HOSTNAME, $USER, $DATABASE with real values
   // execSync(
-  //   `psql -h database-2.cofhrj7zmyn4.eu-central-1.rds.amazonaws.com -U postgres -d platform-v2 -a -f ./dump.sql`,
+  //   `psql -h $HOSTNAME -U $USER -d $DATABASE -a -f ./dump.sql`,
   // );
   metis = new MetisSqlCollector();
 }

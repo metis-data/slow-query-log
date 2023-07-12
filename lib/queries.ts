@@ -12,16 +12,14 @@ export const QUERIES = {
     `SET log_destination = 'csvlog';`,
     `SET log_rotation_age = 60;`,
     `SET log_min_duration_statement = 0;`,
-    `SET client_min_messages TO log;`,
   ],
   loadLogs: 'SELECT public.load_postgres_log_files();',
   getLogs: (time: string) => `
-    SELECT * 
+    SELECT log_time, database_name, command_tag, virtual_transaction_id, message, detail, internal_query
     FROM logs.postgres_logs 
-    WHERE command_tag IN ('SELECT', 'UPDATE', 'INSERT', 'DELETE') 
-      AND message LIKE '%traceparent%'
-      AND message LIKE '%plan:%'
-      AND message NOT LIKE '%logs.postgres_logs%'
+    WHERE command_tag IN ('SELECT', 'UPDATE', 'INSERT', 'DELETE')  
+      AND message LIKE '%traceparent=%'
+      AND message LIKE '%plan:%' 
       AND log_time > '${time}'
   ;`,
   createLogFunction: `

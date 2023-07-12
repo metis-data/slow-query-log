@@ -1,12 +1,10 @@
-import { Client, Pool } from 'pg';
-
 export type MetisSqlCollectorOptions = {
-  connections?: Pool[] | Client[];
   connectionString?: string;
   metisApiKey?: string;
   logFetchInterval?: number;
   metisExportUrl?: string;
   serviceName?: string;
+  debug?: boolean;
 };
 
 export type MetisSqlCollectorConfigs = {
@@ -15,30 +13,28 @@ export type MetisSqlCollectorConfigs = {
 };
 
 const DefaultProps = {
-  connections: [],
-  connectionString: process.env.CONNECTION_STRING,
+  connectionString: process.env.DATABASE_URL,
   metisApiKey: process.env.METIS_API_KEY,
-  logFetchInterval: parseInt(process.env.LOG_FETCH_INTERVAL, 10) || 120_000,
+  logFetchInterval: parseInt(process.env.LOG_FETCH_INTERVAL, 10) || 60_000,
   metisExportUrl: process.env.METIS_EXPORTER_URL || 'https://ingest.metisdata.io/',
   serviceName: process.env.METIS_SERVICE_NAME || '',
+  debug: process.env.METIS_DEBUG === 'true',
 };
 
 export function getProps(props: MetisSqlCollectorOptions) {
   if (!props.connectionString && !DefaultProps.connectionString) {
-    console.log('connection string is missing');
-    // TODO handle error
+    throw new Error('connection string is missing');
   }
   if (!props.metisApiKey && !DefaultProps.metisApiKey) {
-    console.log('api key is missing');
-    // TODO handle error
+    throw new Error('api key is missing');
   }
   return {
-    connections: props.connections || DefaultProps.connections,
     connectionString: props.connectionString || DefaultProps.connectionString,
     metisApiKey: props.metisApiKey || DefaultProps.metisApiKey,
     logFetchInterval: props.logFetchInterval || DefaultProps.logFetchInterval,
     metisExportUrl: props.metisExportUrl || DefaultProps.metisExportUrl,
     serviceName: props.serviceName || DefaultProps.serviceName,
+    debug: props.debug || DefaultProps.debug,
   };
 }
 
@@ -55,4 +51,14 @@ export type Response = {
   text: string;
   headers: { [key: string]: string | string[] };
   error?: Error;
+};
+
+export type LogRow = {
+  log_time: string;
+  database_name: string;
+  command_tag: string;
+  virtual_transaction_id: string;
+  message: string;
+  detail?: string;
+  internal_query?: string;
 };
