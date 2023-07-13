@@ -15,6 +15,7 @@ import {
 } from './types';
 import * as https from 'https';
 import { parse } from 'pg-connection-string';
+import { v4 as uuid } from 'uuid';
 
 export class MetisSqlCollector {
   private readonly db: Pool;
@@ -116,9 +117,9 @@ export class MetisSqlCollector {
   }
 
   private parseContext(query: string) {
-    const [_, traceparent] = query.split('traceparent=');
-    const [__, traceId, spanId] = traceparent.split('-');
-    return { traceId, spanId };
+    const traceparent = query.split('traceparent=')[1];
+    const traceId = traceparent.split('-')[1];
+    return { traceId, spanId: uuid() };
   }
 
   private parseDuration(startTime: string, durationString: string) {

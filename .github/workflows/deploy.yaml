@@ -1,0 +1,44 @@
+name: Deploy On Changes
+
+on:
+  push:
+    branches: main
+
+jobs:
+  build:
+    name: Build lib
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Setup node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.13.0
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@metis-data"
+      - name: Get version
+        id: version
+        run: echo ::set-output name=tag::$(git tag -l "$(echo slow-query-log)*" | sort -V -r | head -n 1)
+      - name: Bump version
+        id: bump-version
+        uses: ./.github/actions/bump-version
+        with:
+          tag: ${{ steps.version.outputs.tag }}
+      - name: Install dependencies
+        run: |
+          npm install
+      - name: Build
+        run: |
+          npm run build
+      - name: Publish
+        env:
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npm publish --tag ${{ steps.bump-version.outputs.tag }}
+      - name: Tag
+        run: |
+          git tag ${{ steps.bump-version.outputs.version }}
+          git push --tag || true
