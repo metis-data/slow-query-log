@@ -1,8 +1,8 @@
 {
   "name": "@metis-data/slow-query-log",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Metis package to fetch postgres slow query log",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc --project ./tsconfig.json",
     "test": "test"
