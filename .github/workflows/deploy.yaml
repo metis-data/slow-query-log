@@ -2,7 +2,7 @@ name: Deploy On Changes
 
 on:
   push:
-    branches: main
+    branches: [main]
 
 jobs:
   build:
