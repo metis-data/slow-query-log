@@ -2,7 +2,7 @@ import express from 'express';
 import { Pool } from 'pg';
 import { execSync } from 'child_process';
 import { exampleQueries } from './exampleQueries';
-import { MetisSqlCollector } from '@metis-data/slow-query-log/dist';
+import { MetisSqlCollector } from '@metis-data/slow-query-log';
 
 let client: Pool;
 let metis: MetisSqlCollector;

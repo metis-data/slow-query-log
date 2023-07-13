@@ -1,5 +1,5 @@
 {
-  "name": "slow-query-log-example",
+  "name": "@metis-data/slow-query-log-example",
   "private": true,
   "version": "0.0.1",
   "license": "MIT",
