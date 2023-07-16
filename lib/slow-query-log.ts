@@ -20,6 +20,7 @@ import { v4 as uuid } from 'uuid';
 export class MetisSqlCollector {
   private readonly db: Pool;
   private readonly configs: MetisSqlCollectorConfigs;
+  private readonly logger: { log: any; error: any };
   private readonly logFetchInterval: number;
   private readonly metisExporterUrl: string;
   private readonly metisApiKey: string;
@@ -35,16 +36,33 @@ export class MetisSqlCollector {
     this.metisExporterUrl = options.metisExportUrl;
     this.metisApiKey = options.metisApiKey;
     this.configs = { dbHost: dbConfig.host, serviceName: options.serviceName };
+    this.logger = options.logger;
     this.inDebug = options.debug;
 
-    this.enableSlowQueryLogs().then(async () => {
-      await this.fetchLogs();
-      this.inDebug && console.log('Done pg setup');
-    });
+    this.enableSlowQueryLogs()
+      .then(async () => {
+        if (props.autoRun) {
+          await this.autoFetchLogs();
+        }
+        this.logger.log('Done pg setup');
+      })
+      .catch((e) => {
+        this.logger.log(e);
+      });
   }
 
   get queries() {
     return QUERIES;
+  }
+
+  public async run() {
+    await this.fetchLogs();
+  }
+
+  private log(message: string) {
+    if (this.inDebug) {
+      this.logger.log(message);
+    }
   }
 
   private async enableSlowQueryLogs() {
@@ -57,16 +75,20 @@ export class MetisSqlCollector {
     );
   }
 
-  private async fetchLogs() {
+  private async autoFetchLogs() {
     setInterval(async () => {
-      await this.db.query(this.queries.loadLogs);
-      const res = await this.db.query(this.queries.getLogs(this.lastLogTime));
-      if (res.rows.length) {
-        this.setLastLogTime(res.rows.at(-1));
-        const spans = this.parseLogs(res.rows);
-        await this.exportLogs(spans);
-      }
+      await this.fetchLogs();
     }, this.logFetchInterval);
+  }
+
+  private async fetchLogs() {
+    await this.db.query(this.queries.loadLogs);
+    const res = await this.db.query(this.queries.getLogs(this.lastLogTime));
+    if (res.rows.length) {
+      this.setLastLogTime(res.rows.at(-1));
+      const spans = this.parseLogs(res.rows);
+      await this.exportLogs(spans);
+    }
   }
 
   private setLastLogTime(lastLog: any) {
@@ -109,7 +131,7 @@ export class MetisSqlCollector {
             },
           });
         } catch (e) {
-          this.inDebug && console.log(`Parse failed: ${e}`);
+          this.log(`Parse failed: ${e}`);
           return;
         }
       })
@@ -155,7 +177,7 @@ export class MetisSqlCollector {
           throw new Error(`Bad status code: ${res.statusCode}, ${JSON.stringify(contexts)}`);
         }
       } catch (e) {
-        this.inDebug && console.log(`Error in logs export: ${e}`);
+        this.log(`Error in logs export: ${e}`);
       }
     }
   }

@@ -4,7 +4,9 @@ export type MetisSqlCollectorOptions = {
   logFetchInterval?: number;
   metisExportUrl?: string;
   serviceName?: string;
+  logger?: any;
   debug?: boolean;
+  autoRun?: boolean;
 };
 
 export type MetisSqlCollectorConfigs = {
@@ -19,14 +21,17 @@ const DefaultProps = {
   metisExportUrl: process.env.METIS_EXPORTER_URL || 'https://ingest.metisdata.io/',
   serviceName: process.env.METIS_SERVICE_NAME || '',
   debug: process.env.METIS_DEBUG === 'true',
+  autoRun: false,
+  logger: { log: console.log, error: console.error },
 };
 
 export function getProps(props: MetisSqlCollectorOptions) {
+  const logger = props.logger || DefaultProps.logger;
   if (!props.connectionString && !DefaultProps.connectionString) {
-    throw new Error('connection string is missing');
+    logger.error('connection string is missing');
   }
   if (!props.metisApiKey && !DefaultProps.metisApiKey) {
-    throw new Error('api key is missing');
+    logger.error('connection string is missing');
   }
   return {
     connectionString: props.connectionString || DefaultProps.connectionString,
@@ -35,6 +40,8 @@ export function getProps(props: MetisSqlCollectorOptions) {
     metisExportUrl: props.metisExportUrl || DefaultProps.metisExportUrl,
     serviceName: props.serviceName || DefaultProps.serviceName,
     debug: props.debug || DefaultProps.debug,
+    autoRun: props.autoRun || DefaultProps.autoRun,
+    logger,
   };
 }
 
