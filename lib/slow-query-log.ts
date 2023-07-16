@@ -77,19 +77,6 @@ export class MetisSqlCollector {
     }
   }
 
-  private async testConnectivity() {
-    try {
-      // Connect to the database
-      await this.client.connect();
-      console.log('Connected successfully');
-    } catch (error) {
-      console.error('Connection error:', error.message);
-    } finally {
-      // Close the client connection
-      await client.end();
-    }
-  }
-
   private parseLogs(rawLogs: LogRow[]) {
     return rawLogs
       .map((log) => {
