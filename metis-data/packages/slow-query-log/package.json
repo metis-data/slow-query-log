@@ -1,0 +1,37 @@
+{
+  "name": "@metis-data/slow-query-log",
+  "version": "0.0.3",
+  "description": "Metis package to fetch postgres slow query log",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "type-check": "tsc",
+    "build": "tsc --project ./tsconfig.json",
+    "test": "test"
+  },
+  "dependencies": {
+    "pg": "^8.11.0",
+    "pg-connection-string": "^2.6.1",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^16.18.35",
+    "@types/pg": "^8.10.2",
+    "prettier": "^2.8.8",
+    "eslint-config-custom": "*",
+    "typescript": "^5.1.6"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/metis-data/slow-query-log.git"
+  },
+  "author": "Metisdata <support@metisdata.io>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/metis-data/slow-query-log/issues"
+  },
+  "homepage": "https://github.com/metis-data/slow-query-log#readme"
+}
