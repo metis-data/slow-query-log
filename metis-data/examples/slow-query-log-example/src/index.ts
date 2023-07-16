@@ -1,4 +1,4 @@
-import express from 'express';
+import * as express from 'express';
 import { Pool } from 'pg';
 import { execSync } from 'child_process';
 import { exampleQueries } from './exampleQueries';

@@ -4,13 +4,16 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "start:example": "turbo run start --filter=slow-query-log-example",
+    "build:slow-query-log": "turbo run build --filter=slow-query-log"
   },
   "devDependencies": {
     "@turbo/gen": "^1.9.7",
     "eslint": "^7.32.0",
     "eslint-config-custom": "*",
     "prettier": "^2.5.1",
+    "typescript": "^5.1.6",
     "turbo": "latest"
   },
   "name": "metis-data",
@@ -18,5 +21,6 @@
   "workspaces": [
     "examples/*",
     "packages/*"
-  ]
+  ],
+  "node": ">=16.14.2 <=18.13.0"
 }
