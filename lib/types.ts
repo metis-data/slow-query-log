@@ -5,6 +5,7 @@ export type MetisSqlCollectorOptions = {
   metisExportUrl?: string;
   serviceName?: string;
   debug?: boolean;
+  autoRun?: boolean;
 };
 
 export type MetisSqlCollectorConfigs = {
@@ -12,30 +13,26 @@ export type MetisSqlCollectorConfigs = {
   serviceName?: string;
 };
 
-const DefaultProps = {
+const defaultProps = {
   connectionString: process.env.DATABASE_URL,
   metisApiKey: process.env.METIS_API_KEY,
   logFetchInterval: parseInt(process.env.LOG_FETCH_INTERVAL, 10) || 60_000,
   metisExportUrl: process.env.METIS_EXPORTER_URL || 'https://ingest.metisdata.io/',
   serviceName: process.env.METIS_SERVICE_NAME || '',
   debug: process.env.METIS_DEBUG === 'true',
+  autoRun: true,
 };
 
 export function getProps(props: MetisSqlCollectorOptions) {
-  if (!props.connectionString && !DefaultProps.connectionString) {
+  props = { ...defaultProps, ...(props || {})}
+  if (!props.connectionString && !defaultProps.connectionString) {
     throw new Error('connection string is missing');
   }
-  if (!props.metisApiKey && !DefaultProps.metisApiKey) {
+  if (!props.metisApiKey && !defaultProps.metisApiKey) {
     throw new Error('api key is missing');
   }
-  return {
-    connectionString: props.connectionString || DefaultProps.connectionString,
-    metisApiKey: props.metisApiKey || DefaultProps.metisApiKey,
-    logFetchInterval: props.logFetchInterval || DefaultProps.logFetchInterval,
-    metisExportUrl: props.metisExportUrl || DefaultProps.metisExportUrl,
-    serviceName: props.serviceName || DefaultProps.serviceName,
-    debug: props.debug || DefaultProps.debug,
-  };
+  
+  return props;
 }
 
 export const AWS_CONTEXT = 'AWS Context';

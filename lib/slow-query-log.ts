@@ -36,10 +36,9 @@ export class MetisSqlCollector {
     this.metisApiKey = options.metisApiKey;
     this.configs = { dbHost: dbConfig.host, serviceName: options.serviceName };
     this.inDebug = options.debug;
-
-    this.enableSlowQueryLogs().then(async () => {
-      await this.fetchLogs();
-      this.inDebug && console.log('Done pg setup');
+    
+    props && props?.autoRun && this.run().catch(e => {
+      this.inDebug && console.error(e);
     });
   }
 
@@ -47,31 +46,47 @@ export class MetisSqlCollector {
     return QUERIES;
   }
 
+  public async run() {
+    await this.enableSlowQueryLogs()
+    await this.fetchLogs();
+    this.inDebug && console.log('Done pg setup');
+  }
+
   private async enableSlowQueryLogs() {
-    return Promise.all(
-      [...this.queries.enableLogs, this.queries.createLogFunction].map(async (setupQuery) => {
-        try {
-          await this.db.query(setupQuery);
-        } catch (e) {}
-      }),
-    );
+    const mergedQuery = `${this.queries.enableLogs}${this.queries.createLogFunction}`
+    await this.db.query(mergedQuery);
   }
 
   private async fetchLogs() {
-    setInterval(async () => {
-      await this.db.query(this.queries.loadLogs);
-      const res = await this.db.query(this.queries.getLogs(this.lastLogTime));
-      if (res.rows.length) {
-        this.setLastLogTime(res.rows.at(-1));
-        const spans = this.parseLogs(res.rows);
-        await this.exportLogs(spans);
-      }
-    }, this.logFetchInterval);
+    setInterval(this._fetchLogs, this.logFetchInterval);
+  }
+
+  private async _fetchLogs(){
+    await this.db.query(this.queries.loadLogs);
+    const res = await this.db.query(this.queries.getLogs(this.lastLogTime));
+    if (res.rows.length) {
+      this.setLastLogTime(res.rows.at(-1));
+      const spans = this.parseLogs(res.rows);
+      await this.exportLogs(spans);
+    }
   }
 
   private setLastLogTime(lastLog: any) {
     if (lastLog) {
       this.lastLogTime = new Date(lastLog.log_time).toISOString().replace('T', ' ');
+    }
+  }
+
+  private async testConnectivity() {
+    try {
+      // Connect to the database
+      await this.client.connect();
+      console.log('Connected successfully');
+    } catch (error) {
+      console.error('Connection error:', error.message);
+    } finally {
+      // Close the client connection
+      await client.end();
     }
   }
 

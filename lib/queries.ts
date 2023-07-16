@@ -1,18 +1,16 @@
 export const QUERIES = {
-  enableLogs: [
-    `LOAD 'auto_explain';`,
-    `SET session_preload_libraries = auto_explain;`,
-    `SET auto_explain.log_min_duration = 0;`,
-    `SET auto_explain.log_analyze = true;`,
-    `SET auto_explain.log_buffers = true;`,
-    `SET auto_explain.log_timing = true;`,
-    `SET auto_explain.log_verbose = true;`,
-    `SET auto_explain.log_nested_statements = true;`,
-    `SET log_statement = 'mod';`,
-    `SET log_destination = 'csvlog';`,
-    `SET log_rotation_age = 60;`,
-    `SET log_min_duration_statement = 0;`,
-  ],
+  enableLogs: `LOAD 'auto_explain';
+  SET session_preload_libraries = auto_explain;
+  SET auto_explain.log_min_duration = 0;
+  SET auto_explain.log_analyze = true;
+  SET auto_explain.log_buffers = true;
+  SET auto_explain.log_timing = true;
+  SET auto_explain.log_verbose = true;
+  SET auto_explain.log_nested_statements = true;
+  SET log_statement = 'mod';
+  SET log_destination = 'csvlog';
+  SET log_rotation_age = 60;
+  SET log_min_duration_statement = 0;`,
   loadLogs: 'SELECT public.load_postgres_log_files();',
   getLogs: (time: string) => `
     SELECT log_time, database_name, command_tag, virtual_transaction_id, message, detail, internal_query
