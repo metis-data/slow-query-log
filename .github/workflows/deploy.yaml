@@ -37,7 +37,11 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npm publish --tag ${{ steps.bump-version.outputs.tag }}
+          npm version patch
+          git add package*.json
+          git commit --amend
+          git push -f
+          npm publish
       - name: Tag
         run: |
           git tag ${{ steps.bump-version.outputs.version }}
