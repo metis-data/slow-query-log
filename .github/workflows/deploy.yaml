@@ -41,7 +41,7 @@ jobs:
           git config user.email "${{ github.actor }}@users.noreply.github.com"
           npm version patch
           git add package*.json
-          git commit --amend
+          git commit -m "bump-version"
           git push -f
           npm publish
       - name: Tag
