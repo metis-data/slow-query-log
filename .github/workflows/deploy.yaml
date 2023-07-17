@@ -1,8 +1,7 @@
 name: Deploy On Changes
 
 on:
-  push:
-    branches: [main]
+  merge_group:
 
 jobs:
   build:
@@ -17,7 +16,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 18.13.0
-          registry-url: "https://npm.pkg.github.com"
+          registry-url: "https://registry.npmjs.org/"
           scope: "@metis-data"
       - name: Get version
         id: version
@@ -27,12 +26,6 @@ jobs:
         uses: ./.github/actions/bump-version
         with:
           tag: ${{ steps.version.outputs.tag }}
-      - name: Install dependencies
-        run: |
-          npm install
-      - name: Build
-        run: |
-          npm run build
       - name: Publish
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
