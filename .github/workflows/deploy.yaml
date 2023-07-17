@@ -4,8 +4,8 @@ on:
   merge_group:
 
 jobs:
-  build:
-    name: Build lib
+  publish:
+    name: Publish lib
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
