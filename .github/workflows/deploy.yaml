@@ -2,6 +2,7 @@ name: Deploy On Changes
 
 on:
   merge_group:
+    branches: [ main ]
 
 jobs:
   publish:
