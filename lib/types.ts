@@ -19,7 +19,7 @@ const DefaultProps = {
   metisApiKey: process.env.METIS_API_KEY,
   logFetchInterval: parseInt(process.env.LOG_FETCH_INTERVAL, 10) || 60_000,
   metisExportUrl: process.env.METIS_EXPORTER_URL || 'https://ingest.metisdata.io/',
-  serviceName: process.env.METIS_SERVICE_NAME || '',
+  serviceName: process.env.METIS_SERVICE_NAME || 'default',
   debug: process.env.METIS_DEBUG === 'true',
   autoRun: false,
   logger: { log: console.log, error: console.error },
