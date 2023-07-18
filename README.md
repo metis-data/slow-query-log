@@ -39,7 +39,8 @@ const metis = new MetisSqlCollector();
 metis.run();
 ```
 
-- Options:
+- Options: 
+
     Options can be set from the constructor or from environment variables
     - autoRun: will send slow query log automatically every 1 minute, if set to false, calls to run() should be handled manually
     - connectionString: database url, must be set from this configuration or DATABASE_URL
@@ -50,7 +51,8 @@ metis.run();
     - logger: must implement log and error functions, by default ```{ log: console.log, error: console.error }``` 
       and will log "log" level only with debug: true
 
-  Environment variables:
+- Environment variables:
+
     Setting the environment variables is equivalent to some of the options above and only one of them is needed
     - DATABASE_URL: same as options.connectionString
     - METIS_API_KEY: same as options.metisApiKey
@@ -58,7 +60,8 @@ metis.run();
     - METIS_SERVICE_NAME: same as options.serviceName
     - METIS_DEBUG: same as options.debug
 
-- Database setup
+- Database setup:
+
     This package tries to install postgres log_fdw extension and run some configurations queries in the database, so the
     connection must be of a user with the appropriate permissions.
     For managed databases (like aws rds) the next parameters must be set: 
