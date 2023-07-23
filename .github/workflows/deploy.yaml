@@ -2,7 +2,6 @@ name: Deploy On Changes
 
 on:
   merge_group:
-    branches: [ main ]
 
 jobs:
   publish:
@@ -29,13 +28,13 @@ jobs:
           tag: ${{ steps.version.outputs.tag }}
       - name: Publish
         env:
-          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           git config user.name "${{ github.actor }}"
           git config user.email "${{ github.actor }}@users.noreply.github.com"
           npm version patch
-          git push -f
-          npm publish
+          git push
+          npm publish --access=public
       - name: Tag
         run: |
           git tag ${{ steps.bump-version.outputs.version }}

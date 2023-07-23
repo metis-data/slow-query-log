@@ -15,7 +15,7 @@ export const QUERIES = {
   ],
   loadLogs: 'SELECT public.load_postgres_log_files();',
   getLogs: (time: string) => `
-    SELECT log_time, database_name, command_tag, virtual_transaction_id, message, detail, internal_query
+    SELECT log_time, database_name, command_tag, virtual_transaction_id, message, detail, internal_query, query_id
     FROM logs.postgres_logs 
     WHERE command_tag IN ('SELECT', 'UPDATE', 'INSERT', 'DELETE')  
       AND message LIKE '%traceparent=%'
