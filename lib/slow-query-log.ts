@@ -83,10 +83,13 @@ export class MetisSqlCollector {
 
   private async fetchLogs() {
     await this.db.query(this.queries.loadLogs);
+    const queryIds = await this.db.query(this.queries.getQueryIds);
+    const queryIdMap = {};
+    queryIds.rows.map((row) => (queryIdMap[row.virtual_transaction_id] = row.query_id));
     const res = await this.db.query(this.queries.getLogs(this.lastLogTime));
     if (res.rows.length) {
       this.setLastLogTime(res.rows.at(-1));
-      const spans = this.parseLogs(res.rows);
+      const spans = this.parseLogs(res.rows, queryIdMap);
       await this.exportLogs(spans);
     }
   }
@@ -97,12 +100,18 @@ export class MetisSqlCollector {
     }
   }
 
-  private parseLogs(rawLogs: LogRow[]) {
+  private parseLogs(rawLogs: LogRow[], queryIds: any) {
     return rawLogs
       .map((log) => {
         if (log.message.includes('logs.postgres_logs')) return;
         try {
-          const { log_time: logTime, database_name: dbName, message, query_id: queryId } = log;
+          const {
+            log_time: logTime,
+            database_name: dbName,
+            message,
+            virtual_transaction_id: virtualId,
+            query_id: queryId,
+          } = log;
           const [durationString, planObj] = message.split('plan:');
           const parsed = JSON.parse(planObj);
           const { ['Query Text']: query, ...plan } = parsed;
@@ -121,7 +130,7 @@ export class MetisSqlCollector {
               ['db.statement.metis']: query,
               ['db.statement.metis.plan']: JSON.stringify(plan),
               ['db.name']: dbName,
-              ['db.query.id']: queryId,
+              ['db.query.id']: queryId !== '0' ? queryId : queryIds[virtualId],
               ['db.system']: 'postgresql',
               ['net.host.name']: this.configs.dbHost,
               ['net.peer.name']: this.configs.dbHost,
