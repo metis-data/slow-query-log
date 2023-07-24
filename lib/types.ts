@@ -68,4 +68,5 @@ export type LogRow = {
   message: string;
   detail?: string;
   internal_query?: string;
+  query_id?: string;
 };
