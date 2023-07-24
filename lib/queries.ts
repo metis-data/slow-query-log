@@ -22,6 +22,16 @@ export const QUERIES = {
       AND message LIKE '%plan:%' 
       AND log_time > '${time}'
   ;`,
+  getQueryIds: `
+    SELECT virtual_transaction_id, query_id
+    FROM (
+      SELECT virtual_transaction_id, query_id, COUNT(*) AS appearance_count,
+      RANK() OVER (PARTITION BY virtual_transaction_id ORDER BY COUNT(*) DESC) AS appearance_rank
+      FROM logs.postgres_logs
+      WHERE query_id <> 0
+      GROUP BY virtual_transaction_id, query_id
+    ) ranked
+  ;`,
   createLogFunction: `
     CREATE OR REPLACE FUNCTION public.load_postgres_log_files(v_schema_name TEXT DEFAULT 'logs', v_table_name TEXT DEFAULT 'postgres_logs', v_prefer_csv BOOLEAN DEFAULT TRUE)
     RETURNS TEXT
