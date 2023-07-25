@@ -28,7 +28,7 @@ export const QUERIES = {
       SELECT virtual_transaction_id, query_id, COUNT(*) AS appearance_count,
       RANK() OVER (PARTITION BY virtual_transaction_id ORDER BY COUNT(*) DESC) AS appearance_rank
       FROM logs.postgres_logs
-      WHERE query_id <> 0
+      WHERE query_id <> 0 AND command_tag NOT IN ('', 'authentication', 'idle', 'BEGIN', 'COMMIT', 'SHOW')
       GROUP BY virtual_transaction_id, query_id
     ) ranked
   ;`,
