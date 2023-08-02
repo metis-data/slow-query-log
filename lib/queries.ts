@@ -14,11 +14,12 @@ export const QUERIES = {
     `SET log_min_duration_statement = 0;`,
   ],
   loadLogs: 'SELECT public.load_postgres_log_files();',
-  getLogs: (time: string) => `
+  getLogs: (time: string, byTrace: boolean, dbName: string) => `
     SELECT log_time, database_name, command_tag, virtual_transaction_id, message, detail, internal_query, query_id
     FROM logs.postgres_logs 
     WHERE command_tag IN ('SELECT', 'UPDATE', 'INSERT', 'DELETE')  
-      AND message LIKE '%traceparent=%'
+      ${byTrace ? `AND message LIKE '%traceparent=%'` : ''}
+      ${dbName ? `AND database_name = ${dbName}` : ''}
       AND message LIKE '%plan:%' 
       AND log_time > '${time}'
   ;`,

@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { Client, Pool } from 'pg';
 import { QUERIES } from './queries';
 import {
   AWS_CONTEXT,
@@ -18,26 +18,34 @@ import { parse } from 'pg-connection-string';
 import { v4 as uuid } from 'uuid';
 
 export class MetisSqlCollector {
-  private readonly db: Pool;
+  private static _instance: MetisSqlCollector | null = null;
+
+  private db: Client | Pool;
   private readonly configs: MetisSqlCollectorConfigs;
   private readonly logger: { log: any; error: any };
   private readonly logFetchInterval: number;
   private readonly metisExporterUrl: string;
   private readonly metisApiKey: string;
+  private readonly dbName: string;
+  private readonly byTrace: boolean;
   private readonly inDebug: boolean;
   // Set the first call to fetch logs from last 10 minutes
   private lastLogTime: string = new Date(new Date().getTime() - 10 * 60 * 1000).toISOString().replace('T', ' ');
 
   constructor(props: MetisSqlCollectorOptions = {}) {
+    if (MetisSqlCollector._instance) return MetisSqlCollector._instance;
+
     const options: MetisSqlCollectorOptions = getProps(props);
     const dbConfig = parse(options.connectionString);
-    this.db = new Pool({ connectionString: options.connectionString });
+    this.db = props.client ?? new Pool({ connectionString: options.connectionString });
     this.logFetchInterval = options.logFetchInterval;
     this.metisExporterUrl = options.metisExportUrl;
     this.metisApiKey = options.metisApiKey;
     this.configs = { dbHost: dbConfig.host, serviceName: options.serviceName };
     this.logger = options.logger;
     this.inDebug = options.debug;
+    this.dbName = options.dbName;
+    this.byTrace = options.byTrace;
 
     this.enableSlowQueryLogs()
       .then(async () => {
@@ -49,6 +57,8 @@ export class MetisSqlCollector {
       .catch((e) => {
         this.logger.log(e);
       });
+
+    MetisSqlCollector._instance = this;
   }
 
   get queries() {
@@ -57,6 +67,10 @@ export class MetisSqlCollector {
 
   public async run() {
     await this.fetchLogs();
+  }
+
+  public setClient(client: Client) {
+    this.db = client;
   }
 
   private log(message: string) {
@@ -86,7 +100,7 @@ export class MetisSqlCollector {
     const queryIds = await this.db.query(this.queries.getQueryIds);
     const queryIdMap = {};
     queryIds.rows.map((row) => (queryIdMap[row.virtual_transaction_id] = row.query_id));
-    const res = await this.db.query(this.queries.getLogs(this.lastLogTime));
+    const res = await this.db.query(this.queries.getLogs(this.lastLogTime, this.byTrace, this.dbName));
     if (res.rows.length) {
       this.setLastLogTime(res.rows.at(-1));
       const spans = this.parseLogs(res.rows, queryIdMap);
