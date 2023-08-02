@@ -37,7 +37,7 @@ export class MetisSqlCollector {
 
     const options: MetisSqlCollectorOptions = getProps(props);
     const dbConfig = parse(options.connectionString);
-    this.db = props.client ?? new Pool({ connectionString: options.connectionString });
+    this.db = props.client ?? new Client({ connectionString: options.connectionString });
     this.logFetchInterval = options.logFetchInterval;
     this.metisExporterUrl = options.metisExportUrl;
     this.metisApiKey = options.metisApiKey;
@@ -105,6 +105,9 @@ export class MetisSqlCollector {
       this.setLastLogTime(res.rows.at(-1));
       const spans = this.parseLogs(res.rows, queryIdMap);
       await this.exportLogs(spans);
+      try {
+        await (this.db as Client).end();
+      } catch (e) {}
     }
   }
 
