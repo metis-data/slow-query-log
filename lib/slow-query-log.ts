@@ -97,7 +97,7 @@ export class MetisSqlCollector {
 
   private async fetchLogs() {
     await this.db.query(this.queries.loadLogs);
-    const queryIds = await this.db.query(this.queries.getQueryIds);
+    const queryIds = await this.db.query(this.queries.getQueryIds(this.lastLogTime));
     const queryIdMap = {};
     queryIds.rows.map((row) => (queryIdMap[row.virtual_transaction_id] = row.query_id));
     const res = await this.db.query(this.queries.getLogs(this.lastLogTime, this.byTrace, this.dbName));

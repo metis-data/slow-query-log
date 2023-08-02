@@ -23,13 +23,15 @@ export const QUERIES = {
       AND message LIKE '%plan:%' 
       AND log_time > '${time}'
   ;`,
-  getQueryIds: `
+  getQueryIds: (time: string) => `
     SELECT virtual_transaction_id, query_id
     FROM (
       SELECT virtual_transaction_id, query_id, COUNT(*) AS appearance_count,
       RANK() OVER (PARTITION BY virtual_transaction_id ORDER BY COUNT(*) DESC) AS appearance_rank
       FROM logs.postgres_logs
-      WHERE query_id <> 0 AND command_tag NOT IN ('', 'authentication', 'idle', 'BEGIN', 'COMMIT', 'SHOW')
+      WHERE query_id <> 0 
+        AND command_tag NOT IN ('', 'authentication', 'idle', 'BEGIN', 'COMMIT', 'SHOW')
+        AND log_time > '${time}'
       GROUP BY virtual_transaction_id, query_id
     ) ranked
   ;`,
