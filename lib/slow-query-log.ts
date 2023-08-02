@@ -34,6 +34,7 @@ export class MetisSqlCollector {
 
   constructor(props: MetisSqlCollectorOptions = {}) {
     if (MetisSqlCollector._instance) return MetisSqlCollector._instance;
+
     const options: MetisSqlCollectorOptions = getProps(props);
     const dbConfig = parse(options.connectionString);
     this.db = props.client ?? new Pool({ connectionString: options.connectionString });

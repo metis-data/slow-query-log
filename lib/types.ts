@@ -34,8 +34,8 @@ const DefaultProps = {
 
 export function getProps(props: MetisSqlCollectorOptions) {
   const logger = props.logger || DefaultProps.logger;
-  if (!props.connectionString && !DefaultProps.connectionString) {
-    logger.error('connection string is missing');
+  if (!props.connectionString && !DefaultProps.connectionString && !props.client) {
+    logger.error('connection string or database client must be provided');
   }
   if (!props.metisApiKey && !DefaultProps.metisApiKey) {
     logger.error('metis api key is missing');
