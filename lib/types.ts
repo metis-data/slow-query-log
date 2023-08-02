@@ -1,9 +1,14 @@
+import { Client } from 'pg';
+
 export type MetisSqlCollectorOptions = {
   connectionString?: string;
+  client?: Client;
   metisApiKey?: string;
   logFetchInterval?: number;
   metisExportUrl?: string;
   serviceName?: string;
+  dbName?: string;
+  byTrace?: boolean;
   logger?: any;
   debug?: boolean;
   autoRun?: boolean;
@@ -22,6 +27,8 @@ const DefaultProps = {
   serviceName: process.env.METIS_SERVICE_NAME || 'default',
   debug: process.env.METIS_DEBUG === 'true',
   autoRun: false,
+  byTrace: true,
+  dbName: process.env.DB_NAME || '',
   logger: { log: console.log, error: console.error },
 };
 
@@ -31,7 +38,7 @@ export function getProps(props: MetisSqlCollectorOptions) {
     logger.error('connection string is missing');
   }
   if (!props.metisApiKey && !DefaultProps.metisApiKey) {
-    logger.error('connection string is missing');
+    logger.error('metis api key is missing');
   }
   return {
     connectionString: props.connectionString || DefaultProps.connectionString,
@@ -41,6 +48,8 @@ export function getProps(props: MetisSqlCollectorOptions) {
     serviceName: props.serviceName || DefaultProps.serviceName,
     debug: props.debug || DefaultProps.debug,
     autoRun: props.autoRun || DefaultProps.autoRun,
+    byTrace: props.byTrace === false ? false : DefaultProps.byTrace,
+    dbName: props.dbName || DefaultProps.dbName,
     logger,
   };
 }
