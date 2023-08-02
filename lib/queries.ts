@@ -19,7 +19,7 @@ export const QUERIES = {
     FROM logs.postgres_logs 
     WHERE command_tag IN ('SELECT', 'UPDATE', 'INSERT', 'DELETE')  
       ${byTrace ? `AND message LIKE '%traceparent=%'` : ''}
-      ${dbName ? `AND database_name = ${dbName}` : ''}
+      ${dbName ? `AND database_name = '${dbName}'` : ''}
       AND message LIKE '%plan:%' 
       AND log_time > '${time}'
   ;`,
