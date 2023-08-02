@@ -80,6 +80,9 @@ export class MetisSqlCollector {
   }
 
   private async enableSlowQueryLogs() {
+    try {
+      await this.db.connect();
+    } catch (e) {}
     return Promise.all(
       [...this.queries.enableLogs, this.queries.createLogFunction].map(async (setupQuery) => {
         try {
