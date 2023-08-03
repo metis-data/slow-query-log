@@ -166,9 +166,9 @@ export class MetisSqlCollector {
   }
 
   private parseContext(query: string) {
-    const traceparent = query.split('traceparent=')[1];
-    const traceId = traceparent.split('-')[1];
-    return { traceId, spanId: uuid() };
+    const traceparent = query?.split('traceparent=')?.[1];
+    const traceId = traceparent?.split('-')?.[1];
+    return { traceId: traceId || uuid(), spanId: uuid() };
   }
 
   private parseDuration(startTime: string, durationString: string) {
