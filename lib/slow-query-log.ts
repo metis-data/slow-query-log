@@ -108,9 +108,6 @@ export class MetisSqlCollector {
       this.setLastLogTime(res.rows.at(-1));
       const spans = this.parseLogs(res.rows, queryIdMap);
       await this.exportLogs(spans);
-      try {
-        await (this.db as Client).end();
-      } catch (e) {}
     }
   }
 
