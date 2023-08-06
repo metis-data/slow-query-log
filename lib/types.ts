@@ -29,11 +29,12 @@ const DefaultProps = {
   autoRun: false,
   byTrace: true,
   dbName: process.env.DB_NAME || '',
-  logger: { log: console.log, error: console.error },
+  logger: { log: console.log, info: console.log, error: console.error },
 };
 
 export function getProps(props: MetisSqlCollectorOptions) {
   const logger = props.logger || DefaultProps.logger;
+  if (!logger.log && logger.info) logger.log = logger.info;
   if (!props.connectionString && !DefaultProps.connectionString && !props.client) {
     logger.error('connection string or database client must be provided');
   }
