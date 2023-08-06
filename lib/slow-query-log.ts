@@ -22,7 +22,7 @@ export class MetisSqlCollector {
 
   private db: Client | Pool;
   private readonly configs: MetisSqlCollectorConfigs;
-  private readonly logger: { log: any; error: any };
+  private readonly logger: { log?: any; info?: any; error: any };
   private readonly logFetchInterval: number;
   private readonly metisExporterUrl: string;
   private readonly metisApiKey: string;
