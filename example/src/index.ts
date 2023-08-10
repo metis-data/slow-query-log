@@ -1,14 +1,14 @@
 import express from 'express';
-import { Pool } from 'pg';
+import { Client } from 'pg';
 import { execSync } from 'child_process';
 import { exampleQueries } from './exampleQueries';
 import { MetisSqlCollector } from '@metis-data/slow-query-log';
 
-let client: Pool;
+let client: Client;
 let metis: MetisSqlCollector;
 async function setClient() {
   const connectionString = process.env.DATABASE_URL;
-  client = new Pool({ connectionString });
+  client = new Client({ connectionString });
   await client.connect();
 
   // Enable for seed, replace $HOSTNAME, $USER, $DATABASE with real values
