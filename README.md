@@ -7,7 +7,7 @@
 ## Overview
 
 This is a Metis complementary package that enables postgres slow query log and auto analyze.
-Using postgres extension log_fdw it collects relevant queries from databases instrumented by postgres instrumentation 
+Using postgres extension file_fdw/log_fdw it collects relevant queries from databases instrumented by postgres instrumentation 
 (available in Metis SDKs), having sql commenter enabled and writing traceparent comment on queries.
 Those queries are exported to Metis platform to be analyzed and monitored.
 
@@ -62,23 +62,26 @@ metis.run();
 
 - Database setup:
 
-    This package tries to install postgres log_fdw extension and run some configurations queries in the database, so the
+    This package tries to install postgres file_fdw/log_fdw extension and run some configurations queries in the database, so the
     connection must be of a user with the appropriate permissions.
+    If it is the first time of enabling postgres logs, some of the parameters requires a server restart.
     For managed databases (like aws rds) the next parameters must be set: 
 
-| parameter                          | value        |
-|------------------------------------|--------------|
-| session_preload_libraries          | auto_explain |
-| auto_explain.log_min_duration      | 0            |
-| auto_explain.log_analyze           | true         |
-| auto_explain.log_buffers           | true         |
-| auto_explain.log_timing            | true         |
-| auto_explain.log_verbose           | true         |
-| auto_explain.log_nested_statements | true         |
-| log_statement                      | 'mod'        |
-| log_destination                    | 'csvlog'     |
-| log_rotation_age                   | 60           |
-| log_min_duration_statement         | 0            |
+| parameter                           | value                        |
+|-------------------------------------|------------------------------|
+| session_preload_libraries           | auto_explain                 |
+| auto_explain.log_min_duration       | 0                            |
+| auto_explain.log_analyze            | true                         |
+| auto_explain.log_buffers            | true                         |
+| auto_explain.log_timing             | true                         |
+| auto_explain.log_verbose            | true                         |
+| auto_explain.log_nested_statements  | true                         |
+| logging_collector                   | true                         | 
+| log_statement                       | 'mod'                        |
+| log_destination                     | 'csvlog'                     |
+| log_filename                        | 'postgresql.log.%Y-%m-%d-%H' |
+| log_rotation_age                    | 60                           |
+| log_min_duration_statement          | 0                            |
 
 ## Issues
 If you would like to report a potential issue please use [Issues](https://github.com/metis-data/slow-query-log/issues)

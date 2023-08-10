@@ -41,6 +41,8 @@ export const QUERIES = {
     AS
     $BODY$
     DECLARE
+    v_extension_name TEXT;
+    v_log_fdw_available BOOLEAN;
     v_csv_supported INT := 0;
     v_hour_pattern_used INT := 0;
     v_filename TEXT;
@@ -54,14 +56,88 @@ export const QUERIES = {
     v_filelist_sql TEXT;
     v_enable_csv BOOLEAN := TRUE;
     BEGIN
-      EXECUTE FORMAT('SELECT count(1) FROM pg_catalog.pg_extension WHERE extname=%L', 'log_fdw') INTO v_ext_exists;
-      IF v_ext_exists = 0 THEN
-        CREATE EXTENSION log_fdw;
+      EXECUTE FORMAT('SELECT EXISTS (SELECT 1 FROM pg_available_extensions WHERE name=%L)', 'log_fdw') INTO v_log_fdw_available;
+      IF v_log_fdw_available = TRUE THEN
+        v_extension_name := 'log_fdw';
+      ELSE
+        v_extension_name := 'file_fdw';
       END IF;
+    
+      EXECUTE FORMAT('SELECT count(1) FROM pg_catalog.pg_extension WHERE extname=%L', v_extension_name) INTO v_ext_exists;
+      IF v_ext_exists = 0 THEN
+        EXECUTE FORMAT('CREATE EXTENSION %I', v_extension_name);
+        
+        IF v_extension_name = 'file_fdw' THEN
+          CREATE OR REPLACE FUNCTION public.list_postgres_log_files()
+          RETURNS TABLE (file_name TEXT)
+          AS 
+          $BODY_1$
+          DECLARE
+          v_log_file_path TEXT;
+          v_log_file_dir TEXT;
+          v_full_path TEXT;
+          BEGIN
+            EXECUTE 'SHOW data_directory' INTO v_log_file_path;
+            EXECUTE 'SHOW log_directory' INTO v_log_file_dir;
+            v_full_path := v_log_file_path || '/' || v_log_file_dir;
+            RETURN QUERY EXECUTE FORMAT('SELECT * FROM pg_ls_dir(%L) as file_name', v_full_path);
+          END;
+          $BODY_1$ 
+          LANGUAGE plpgsql;
+          
+          CREATE OR REPLACE FUNCTION public.create_foreign_table_for_log_file(IN table_name TEXT, IN server_name TEXT, IN log_file_name TEXT)
+          RETURNS void
+          AS 
+          $BODY_2$
+          DECLARE
+          v_log_file_path TEXT;
+          v_log_file_dir TEXT;
+          v_full_path TEXT;
+          BEGIN
+            EXECUTE 'SHOW data_directory' INTO v_log_file_path;
+            EXECUTE 'SHOW log_directory' INTO v_log_file_dir;
+            v_full_path := v_log_file_path || '/' || v_log_file_dir || '/' || log_file_name;
+            EXECUTE FORMAT('CREATE FOREIGN TABLE %I (
+              log_time timestamp(3) with time zone,
+              user_name text,
+              database_name text,
+              process_id integer,
+              connection_from text,
+              session_id text,
+              session_line_num bigint,
+              command_tag text,
+              session_start_time timestamp with time zone,
+              virtual_transaction_id text,
+              transaction_id bigint,
+              error_severity text,
+              sql_state_code text,
+              message text,
+              detail text,
+              hint text,
+              internal_query text,
+              internal_query_pos integer,
+              context text,
+              query text,
+              query_pos integer,
+              location text,
+              application_name text,
+              backend_type text,
+              leader_pid integer,
+              query_id bigint
+            ) SERVER %I OPTIONS ( filename %L, format %L )',
+            table_name,
+            server_name,
+            v_full_path,
+            'csv');
+          END;
+          $BODY_2$ 
+          LANGUAGE plpgsql;
+        END IF;
+      END IF;      
 
       EXECUTE 'SELECT count(1) FROM pg_catalog.pg_foreign_server WHERE srvname=$1' INTO v_server_exists USING v_server_name;
       IF v_server_exists = 0 THEN
-        EXECUTE FORMAT('CREATE SERVER %s FOREIGN DATA WRAPPER log_fdw', v_server_name);
+        EXECUTE FORMAT('CREATE SERVER %s FOREIGN DATA WRAPPER %I', v_server_name, v_extension_name);
       END IF;
 
       EXECUTE FORMAT('CREATE SCHEMA IF NOT EXISTS %I', v_schema_name);
