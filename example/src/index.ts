@@ -16,6 +16,7 @@ async function setClient() {
   //   `psql -h $HOSTNAME -U $USER -d $DATABASE -a -f ./dump.sql`,
   // );
   metis = new MetisSqlCollector({ autoRun: true });
+  await metis.setup(client);
 }
 setClient();
 
