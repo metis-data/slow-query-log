@@ -104,21 +104,15 @@ export class MetisSqlCollector {
       .map((log) => {
         if (log.message.includes('logs.postgres_logs')) return;
         try {
-          const {
-            log_time: logTime,
-            database_name: dbName,
-            message,
-            virtual_transaction_id: virtualId,
-            query_id: queryId,
-          } = log;
+          const { log_time: logTime, database_name: dbName, message, query_id: queryId } = log;
           if (this.queryIdsSet.has(queryId)) return;
-          else this.queryIdsSet.add(queryId);
           const [durationString, planObj] = message.split('plan:');
-          const parsed = JSON.parse(planObj);
+          const parsed = JSON.parse(planObj.trim());
           const { ['Query Text']: query, ...plan } = parsed;
           if (!query) return;
           const { traceId, spanId } = this.parseContext(query);
           const { duration, endTime } = this.parseDuration(logTime, durationString);
+          this.queryIdsSet.add(queryId);
           return JSON.stringify({
             kind: 'SpanKind.CLIENT',
             context: {

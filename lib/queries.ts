@@ -14,6 +14,7 @@ export const QUERIES = {
     `SET log_filename = 'postgresql.log.%Y-%m-%d-%H';`,
     `SET log_rotation_age = 60;`,
     `SET log_min_duration_statement = 0;`,
+    `SET compute_query_id = 'on'`,
   ],
   loadLogs: 'SELECT public.load_postgres_log_files();',
   getLogs: (time: string, byTrace: boolean, dbName: string) => `
