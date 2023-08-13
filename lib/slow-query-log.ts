@@ -16,8 +16,10 @@ import {
 import * as https from 'https';
 import { parse } from 'pg-connection-string';
 import { v4 as uuid } from 'uuid';
+import ExpirySet from 'expiry-set';
 
 export class MetisSqlCollector {
+  private readonly queryIdsSet = new ExpirySet(3_600_000);
   private readonly configs: MetisSqlCollectorConfigs;
   private readonly logger: { log?: any; info?: any; error: any };
   private readonly logFetchInterval: number;
@@ -83,13 +85,10 @@ export class MetisSqlCollector {
 
   private async fetchLogs(client: Client) {
     await client.query(this.queries.loadLogs);
-    const queryIds = await client.query(this.queries.getQueryIds(this.lastLogTime));
-    const queryIdMap = {};
-    queryIds.rows.map((row) => (queryIdMap[row.virtual_transaction_id] = row.query_id));
     const res = await client.query(this.queries.getLogs(this.lastLogTime, this.byTrace, this.dbName));
     if (res.rows.length) {
       this.setLastLogTime(res.rows.at(-1));
-      const spans = this.parseLogs(res.rows, queryIdMap);
+      const spans = this.parseLogs(res.rows);
       await this.exportLogs(spans);
     }
   }
@@ -100,23 +99,20 @@ export class MetisSqlCollector {
     }
   }
 
-  private parseLogs(rawLogs: LogRow[], queryIds: any) {
+  private parseLogs(rawLogs: LogRow[]) {
     return rawLogs
       .map((log) => {
         if (log.message.includes('logs.postgres_logs')) return;
         try {
-          const {
-            log_time: logTime,
-            database_name: dbName,
-            message,
-            virtual_transaction_id: virtualId,
-            query_id: queryId,
-          } = log;
+          const { log_time: logTime, database_name: dbName, message, query_id: queryId } = log;
+          if (this.queryIdsSet.has(queryId)) return;
           const [durationString, planObj] = message.split('plan:');
-          const parsed = JSON.parse(planObj);
+          const parsed = JSON.parse(planObj.trim());
           const { ['Query Text']: query, ...plan } = parsed;
+          if (!query) return;
           const { traceId, spanId } = this.parseContext(query);
           const { duration, endTime } = this.parseDuration(logTime, durationString);
+          this.queryIdsSet.add(queryId);
           return JSON.stringify({
             kind: 'SpanKind.CLIENT',
             context: {
@@ -130,7 +126,7 @@ export class MetisSqlCollector {
               ['db.statement.metis']: query,
               ['db.statement.metis.plan']: JSON.stringify(plan),
               ['db.name']: dbName,
-              ['db.query.id']: queryId !== '0' ? queryId : queryIds[virtualId],
+              ['db.query.id']: queryId,
               ['db.system']: 'postgresql',
               ['net.host.name']: this.configs.dbHost,
               ['net.peer.name']: this.configs.dbHost,

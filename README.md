@@ -67,21 +67,23 @@ metis.run();
     If it is the first time of enabling postgres logs, some of the parameters requires a server restart.
     For managed databases (like aws rds) the next parameters must be set: 
 
-| parameter                           | value                        |
-|-------------------------------------|------------------------------|
-| session_preload_libraries           | auto_explain                 |
-| auto_explain.log_min_duration       | 0                            |
-| auto_explain.log_analyze            | true                         |
-| auto_explain.log_buffers            | true                         |
-| auto_explain.log_timing             | true                         |
-| auto_explain.log_verbose            | true                         |
-| auto_explain.log_nested_statements  | true                         |
-| logging_collector                   | true                         | 
-| log_statement                       | 'mod'                        |
-| log_destination                     | 'csvlog'                     |
-| log_filename                        | 'postgresql.log.%Y-%m-%d-%H' |
-| log_rotation_age                    | 60                           |
-| log_min_duration_statement          | 0                            |
+| parameter                          | value                        |
+|------------------------------------|------------------------------|
+| session_preload_libraries          | auto_explain                 |
+| auto_explain.log_min_duration      | 0                            |
+| auto_explain.log_format            | 'json'                       |
+| auto_explain.log_analyze           | true                         |
+| auto_explain.log_buffers           | true                         |
+| auto_explain.log_timing            | true                         |
+| auto_explain.log_verbose           | true                         |
+| auto_explain.log_nested_statements | true                         |
+| logging_collector                  | true                         | 
+| log_statement                      | 'mod'                        |
+| log_destination                    | 'csvlog'                     |
+| log_filename                       | 'postgresql.log.%Y-%m-%d-%H' |
+| log_rotation_age                   | 60                           |
+| log_min_duration_statement         | 0                            |
+| compute_query_id                   | 'on'                         |
 
 ## Issues
 If you would like to report a potential issue please use [Issues](https://github.com/metis-data/slow-query-log/issues)

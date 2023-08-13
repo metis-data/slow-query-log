@@ -1,6 +1,6 @@
 {
   "name": "@metis-data/slow-query-log",
-  "version": "0.1.1",
+  "version": "0.1.4",
   "description": "Metis package to fetch postgres slow query log",
   "main": "dist/index.js",
   "scripts": {
@@ -8,6 +8,7 @@
     "test": "test"
   },
   "dependencies": {
+    "expiry-set": "^1.0.0",
     "pg": "^8.11.0",
     "pg-connection-string": "^2.6.1",
     "uuid": "^9.0.0"

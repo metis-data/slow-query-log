@@ -2,6 +2,7 @@ export const QUERIES = {
   enableLogs: [
     `LOAD 'auto_explain';`,
     `SET session_preload_libraries = auto_explain;`,
+    `SET auto_explain.log_format = 'json';`,
     `SET auto_explain.log_min_duration = 0;`,
     `SET auto_explain.log_analyze = true;`,
     `SET auto_explain.log_buffers = true;`,
@@ -14,28 +15,19 @@ export const QUERIES = {
     `SET log_filename = 'postgresql.log.%Y-%m-%d-%H';`,
     `SET log_rotation_age = 60;`,
     `SET log_min_duration_statement = 0;`,
+    `SET compute_query_id = 'on'`,
   ],
   loadLogs: 'SELECT public.load_postgres_log_files();',
   getLogs: (time: string, byTrace: boolean, dbName: string) => `
-    SELECT log_time, database_name, command_tag, virtual_transaction_id, message, detail, internal_query, query_id
+    SELECT log_time, database_name, command_tag, message, detail, internal_query, query_id
     FROM logs.postgres_logs 
     WHERE command_tag IN ('SELECT', 'UPDATE', 'INSERT', 'DELETE')  
       ${byTrace ? `AND message LIKE '%traceparent=%'` : ''}
       ${dbName ? `AND database_name = '${dbName}'` : ''}
+      AND query_id <> 0 
+      AND query_id IS NOT NULL
       AND message LIKE '%plan:%' 
       AND log_time > '${time}'
-  ;`,
-  getQueryIds: (time: string) => `
-    SELECT virtual_transaction_id, query_id
-    FROM (
-      SELECT virtual_transaction_id, query_id, COUNT(*) AS appearance_count,
-      RANK() OVER (PARTITION BY virtual_transaction_id ORDER BY COUNT(*) DESC) AS appearance_rank
-      FROM logs.postgres_logs
-      WHERE query_id <> 0 
-        AND command_tag NOT IN ('', 'authentication', 'idle', 'BEGIN', 'COMMIT', 'SHOW')
-        AND log_time > '${time}'
-      GROUP BY virtual_transaction_id, query_id
-    ) ranked
   ;`,
   createLogFunction: `
     CREATE OR REPLACE FUNCTION public.load_postgres_log_files(v_schema_name TEXT DEFAULT 'logs', v_table_name TEXT DEFAULT 'postgres_logs', v_prefer_csv BOOLEAN DEFAULT TRUE)
