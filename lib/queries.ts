@@ -2,6 +2,7 @@ export const QUERIES = {
   enableLogs: [
     `LOAD 'auto_explain';`,
     `SET session_preload_libraries = auto_explain;`,
+    `SET auto_explain.log_format = 'json';`,
     `SET auto_explain.log_min_duration = 0;`,
     `SET auto_explain.log_analyze = true;`,
     `SET auto_explain.log_buffers = true;`,

@@ -71,6 +71,7 @@ metis.run();
 |------------------------------------|------------------------------|
 | session_preload_libraries          | auto_explain                 |
 | auto_explain.log_min_duration      | 0                            |
+| auto_explain.log_format            | 'json'                       |
 | auto_explain.log_analyze           | true                         |
 | auto_explain.log_buffers           | true                         |
 | auto_explain.log_timing            | true                         |
