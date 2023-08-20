@@ -1,7 +1,6 @@
 export const QUERIES = {
   enableLogs: [
     `LOAD 'auto_explain';`,
-    `SET session_preload_libraries = auto_explain;`,
     `SET auto_explain.log_format = 'json';`,
     `SET auto_explain.log_min_duration = 0;`,
     `SET auto_explain.log_analyze = true;`,
@@ -9,11 +8,7 @@ export const QUERIES = {
     `SET auto_explain.log_timing = true;`,
     `SET auto_explain.log_verbose = true;`,
     `SET auto_explain.log_nested_statements = true;`,
-    `SET logging_collector = true;`,
     `SET log_statement = 'mod';`,
-    `SET log_destination = 'csvlog';`,
-    `SET log_filename = 'postgresql.log.%Y-%m-%d-%H';`,
-    `SET log_rotation_age = 60;`,
     `SET log_min_duration_statement = 0;`,
     `SET compute_query_id = 'on'`,
   ],
