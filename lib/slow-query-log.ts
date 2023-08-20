@@ -29,8 +29,8 @@ export class MetisSqlCollector {
   private readonly byTrace: boolean;
   private readonly autoRun: boolean;
   private readonly inDebug: boolean;
-  // Set the first call to fetch logs from last 10 minutes
-  private lastLogTime: string = new Date(new Date().getTime() - 10 * 60 * 1000).toISOString().replace('T', ' ');
+  // Set the first call to fetch logs from last 1 minute
+  private lastLogTime: string = new Date(new Date().getTime() - 60_000).toISOString().replace('T', ' ');
 
   constructor(props: MetisSqlCollectorOptions = {}) {
     const options: MetisSqlCollectorOptions = getProps(props);
@@ -147,8 +147,7 @@ export class MetisSqlCollector {
   private parseContext(query: string) {
     const traceparent = query?.split('traceparent=')?.[1];
     const traceId = traceparent?.split('-')?.[1];
-    const spanId = traceparent?.split('-')?.[2];
-    return { traceId: traceId || uuid(), spanId: spanId || uuid() };
+    return { traceId: traceId || uuid(), spanId: uuid() };
   }
 
   private parseDuration(startTime: string, durationString: string) {

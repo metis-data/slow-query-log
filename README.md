@@ -37,7 +37,7 @@ import { MetisSqlCollector } from '@metis-data/slow-query-log';
 const metis = new MetisSqlCollector();
 
 // Call this function to send slow query logs from last 2 log files 
-// with logs that added after the last call to run(), (or 10 minutes on first call)
+// with logs that added after the last call to run(), (or 1 minute on first call)
 metis.run();
 ```
 
