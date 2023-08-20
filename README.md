@@ -11,6 +11,8 @@ Using postgres extension file_fdw/log_fdw it collects relevant queries from data
 (available in Metis SDKs), having sql commenter enabled and writing traceparent comment on queries.
 Those queries are exported to Metis platform to be analyzed and monitored.
 
+**Note:** compute_query_id flag which is part of the feature is available from postgres version 14 or later.
+
 
 ## Usage
 
@@ -67,23 +69,42 @@ metis.run();
     If it is the first time of enabling postgres logs, some of the parameters requires a server restart.
     For managed databases (like aws rds) the next parameters must be set: 
 
-| parameter                          | value                        |
-|------------------------------------|------------------------------|
-| session_preload_libraries          | auto_explain                 |
-| auto_explain.log_min_duration      | 0                            |
-| auto_explain.log_format            | 'json'                       |
-| auto_explain.log_analyze           | true                         |
-| auto_explain.log_buffers           | true                         |
-| auto_explain.log_timing            | true                         |
-| auto_explain.log_verbose           | true                         |
-| auto_explain.log_nested_statements | true                         |
-| logging_collector                  | true                         | 
-| log_statement                      | 'mod'                        |
-| log_destination                    | 'csvlog'                     |
-| log_filename                       | 'postgresql.log.%Y-%m-%d-%H' |
-| log_rotation_age                   | 60                           |
-| log_min_duration_statement         | 0                            |
-| compute_query_id                   | 'on'                         |
+| parameter                          | value                            | db needs restart? |
+|------------------------------------|----------------------------------|-------------------|
+| session_preload_libraries          | auto_explain                     | yes               |
+| logging_collector                  | 'on'                             | yes               |
+| log_destination                    | 'csvlog'                         | yes               |
+| log_filename                       | 'postgresql.log.%Y-%m-%d-%H'     | yes               |
+| log_rotation_age                   | 60                               | yes               |
+| auto_explain.log_min_duration      | 0                                | no                |
+| auto_explain.log_format            | 'json'                           | no                |
+| auto_explain.log_analyze           | true                             | no                |
+| auto_explain.log_buffers           | true                             | no                |
+| auto_explain.log_timing            | true                             | no                |
+| auto_explain.log_verbose           | true                             | no                |
+| auto_explain.log_nested_statements | true                             | no                |
+| log_statement                      | 'mod'                            | no                |
+| log_min_duration_statement         | 0                                | no                |
+| compute_query_id                   | 'on'                             | no                |
+
+- Docker/local database setup:
+
+    If you are using postgres on docker container, you should set the required database parameters in the docker-compose file:
+    ```dockerfile
+    version: '3.1'
+
+    services:
+      db:
+      image: postgres
+      environment:
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: postgres
+
+      command: postgres -c shared_preload_libraries=auto_explain -c logging_collector=on -c log_destination=csvlog -c log_filename=postgresql.log.%Y-%m-%d-%H -c log_rotation_age=60
+    #...
+    ```
+
+    If you are using any other local server, make sure to set those parameters in postgres config file postgresql.conf and restart the server.
 
 ## Issues
 If you would like to report a potential issue please use [Issues](https://github.com/metis-data/slow-query-log/issues)
