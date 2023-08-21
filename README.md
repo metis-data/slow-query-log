@@ -64,18 +64,18 @@ metis.run();
 
 - Database setup:
 
-    This package tries to install postgres file_fdw/log_fdw extension and run some configurations queries in the database, so the
+    This package tries to install postgres file_fdw/log_fdw extension, so the
     connection must be of a user with the appropriate permissions.
-    If it is the first time of enabling postgres logs, some of the parameters requires a server restart.
+
     For managed databases (like aws rds) the next parameters must be set: 
 
 | parameter                          | value                            | db needs restart? |
 |------------------------------------|----------------------------------|-------------------|
 | session_preload_libraries          | auto_explain                     | yes               |
-| logging_collector                  | 'on'                             | yes               |
-| log_destination                    | 'csvlog'                         | yes               |
-| log_filename                       | 'postgresql.log.%Y-%m-%d-%H'     | yes               |
-| log_rotation_age                   | 60                               | yes               |
+| logging_collector                  | 'on'                             | yes (locally)     |
+| log_destination                    | 'csvlog'                         | yes (locally)     |
+| log_filename                       | 'postgresql.log.%Y-%m-%d-%H'     | yes (locally)     |
+| log_rotation_age                   | 60                               | yes (locally)     |
 | auto_explain.log_min_duration      | 0                                | no                |
 | auto_explain.log_format            | 'json'                           | no                |
 | auto_explain.log_analyze           | true                             | no                |
@@ -87,6 +87,34 @@ metis.run();
 | log_min_duration_statement         | 0                                | no                |
 | compute_query_id                   | 'on'                             | no                |
 
+- RDS setup using aws cli:
+    If it is the first time of enabling postgres logs on RDS, a new parameter group should be created with logging_collector=on.
+
+    After enabling slow query log in your RDS, the rest of postgres variables can be set with aws cli:
+    ```shell
+    aws rds modify-db-parameter-group \
+      --db-parameter-group-name your-parameter-group-name \
+      --parameters \
+        "ParameterName=shared_preload_libraries,ParameterValue=auto_explain,ApplyMethod=pending-reboot" \
+        "ParameterName=log_destination,ParameterValue=csvlog,ApplyMethod=immediate" \
+        "ParameterName=log_filename,ParameterValue=postgresql.log.%Y-%m-%d-%H,ApplyMethod=immediate" \
+        "ParameterName=log_rotation_age,ParameterValue=60,ApplyMethod=immediate" \
+        "ParameterName=log_statement,ParameterValue=mod,ApplyMethod=immediate" \
+        "ParameterName=log_min_duration_statement,ParameterValue=0,ApplyMethod=immediate" \
+        "ParameterName=compute_query_id,ParameterValue=on,ApplyMethod=immediate" \
+        "ParameterName=auto_explain.log_format,ParameterValue=json,ApplyMethod=immediate" \
+        "ParameterName=auto_explain.log_min_duration,ParameterValue=0,ApplyMethod=immediate" \
+        "ParameterName=auto_explain.log_analyze,ParameterValue=true,ApplyMethod=immediate" \
+        "ParameterName=auto_explain.log_buffers,ParameterValue=true,ApplyMethod=immediate" \
+        "ParameterName=auto_explain.log_timing,ParameterValue=true,ApplyMethod=immediate" \
+        "ParameterName=auto_explain.log_verbose,ParameterValue=true,ApplyMethod=immediate" \
+        "ParameterName=auto_explain.log_nested_statements,ParameterValue=true,ApplyMethod=immediate"
+    
+    # reboot to apply shared_preload_libraries, this set will override an exists values
+    # so if another library is needed make sure to add it to the string command
+    aws rds reboot-db-instance --db-instance-identifier your-db-instance-id
+    ```
+
 - Docker/local database setup:
 
     If you are using postgres on docker container, you should set the required database parameters in the docker-compose file:
@@ -95,12 +123,27 @@ metis.run();
 
     services:
       db:
-      image: postgres
-      environment:
-        POSTGRES_USER: postgres
-        POSTGRES_PASSWORD: postgres
-
-      command: postgres -c shared_preload_libraries=auto_explain -c logging_collector=on -c log_destination=csvlog -c log_filename=postgresql.log.%Y-%m-%d-%H -c log_rotation_age=60
+        image: postgres
+        environment:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+    
+        command: postgres 
+            -c shared_preload_libraries=auto_explain
+            -c logging_collector=on 
+            -c log_destination=csvlog 
+            -c log_filename=postgresql.log.%Y-%m-%d-%H 
+            -c log_rotation_age=60
+            -c log_statement=mod
+            -c log_min_duration_statement=0
+            -c compute_query_id=on
+            -c auto_explain.log_format=json
+            -c auto_explain.log_min_duration=0
+            -c auto_explain.log_analyze=true
+            -c auto_explain.log_buffers=true
+            -c auto_explain.log_timing=true
+            -c auto_explain.log_verbose=true
+            -c auto_explain.log_nested_statements=true
     #...
     ```
 

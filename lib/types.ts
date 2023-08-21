@@ -5,6 +5,7 @@ export type MetisSqlCollectorOptions = {
   client?: Client;
   metisApiKey?: string;
   logFetchInterval?: number;
+  logSampleRate?: number;
   metisExportUrl?: string;
   serviceName?: string;
   dbName?: string;
@@ -23,6 +24,7 @@ const DefaultProps = {
   connectionString: process.env.DATABASE_URL,
   metisApiKey: process.env.METIS_API_KEY,
   logFetchInterval: parseInt(process.env.LOG_FETCH_INTERVAL, 10) || 60_000,
+  logSampleRate: parseFloat(process.env.LOG_SAMPLE_RATE) || 1.0,
   metisExportUrl: process.env.METIS_EXPORTER_URL || 'https://ingest.metisdata.io/',
   serviceName: process.env.METIS_SERVICE_NAME || 'default',
   debug: process.env.METIS_DEBUG === 'true',
@@ -45,6 +47,7 @@ export function getProps(props: MetisSqlCollectorOptions) {
     connectionString: props.connectionString || DefaultProps.connectionString,
     metisApiKey: props.metisApiKey || DefaultProps.metisApiKey,
     logFetchInterval: props.logFetchInterval || DefaultProps.logFetchInterval,
+    logSampleRate: props.logSampleRate || DefaultProps.logSampleRate,
     metisExportUrl: props.metisExportUrl || DefaultProps.metisExportUrl,
     serviceName: props.serviceName || DefaultProps.serviceName,
     debug: props.debug || DefaultProps.debug,
@@ -80,3 +83,18 @@ export type LogRow = {
   internal_query?: string;
   query_id?: string;
 };
+
+export const ExcludedQueriesPrefixes = [
+  'SELECT public.load_postgres',
+  'SELECT log_time, database_name, command_tag',
+  'SELECT file_name FROM public.list_postgres',
+  'SELECT public.create_foreign_table_for_log',
+  'SELECT * FROM pg_ls_dir',
+  'SELECT name, setting FROM pg_settings',
+  'SELECT EXISTS (SELECT 1 FROM pg_available',
+  'SELECT count(1) FROM pg_catalog.pg_extension',
+  'SELECT count(1) FROM pg_catalog.pg_foreign',
+  'SELECT set_config(',
+  'SELECT count(1) FROM information_schema',
+  'SELECT 1 FROM pg_catalog.pg_settings',
+];
