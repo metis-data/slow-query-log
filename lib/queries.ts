@@ -12,6 +12,7 @@ export const QUERIES = {
     `SET log_min_duration_statement = 0;`,
     `SET compute_query_id = 'on'`,
   ],
+  setSampleRate: (rate: number) => `SET log_statement_sample_rate = ${rate};`,
   loadLogs: 'SELECT public.load_postgres_log_files();',
   getLogs: (time: string, byTrace: boolean, dbName: string) => `
     SELECT log_time, database_name, command_tag, message, detail, internal_query, query_id

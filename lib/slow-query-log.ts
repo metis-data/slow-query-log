@@ -2,6 +2,7 @@ import { Client } from 'pg';
 import { QUERIES } from './queries';
 import {
   AWS_CONTEXT,
+  ExcludedQueriesPrefixes,
   getProps,
   LogRow,
   MetisSqlCollectorConfigs,
@@ -16,10 +17,8 @@ import {
 import * as https from 'https';
 import { parse } from 'pg-connection-string';
 import { v4 as uuid } from 'uuid';
-import ExpirySet from 'expiry-set';
 
 export class MetisSqlCollector {
-  private readonly queryIdsSet = new ExpirySet(3_600_000);
   private readonly configs: MetisSqlCollectorConfigs;
   private readonly logger: { log?: any; info?: any; error: any };
   private readonly logFetchInterval: number;
@@ -29,6 +28,7 @@ export class MetisSqlCollector {
   private readonly byTrace: boolean;
   private readonly autoRun: boolean;
   private readonly inDebug: boolean;
+  private logSampleRate: number;
   // Set the first call to fetch logs from last 1 minute
   private lastLogTime: string = new Date(new Date().getTime() - 60_000).toISOString().replace('T', ' ');
 
@@ -36,6 +36,7 @@ export class MetisSqlCollector {
     const options: MetisSqlCollectorOptions = getProps(props);
     const dbConfig = parse(options.connectionString);
     this.logFetchInterval = options.logFetchInterval;
+    this.logSampleRate = options.logSampleRate;
     this.metisExporterUrl = options.metisExportUrl;
     this.metisApiKey = options.metisApiKey;
     this.configs = { dbHost: dbConfig.host, serviceName: options.serviceName };
@@ -51,6 +52,7 @@ export class MetisSqlCollector {
   }
 
   public async setup(client: Client) {
+    await this.setSampleRate(client, this.logSampleRate);
     await this.enableSlowQueryLogs(client);
     if (this.autoRun) {
       await this.autoFetchLogs(client);
@@ -59,6 +61,11 @@ export class MetisSqlCollector {
 
   public async run(client: Client) {
     await this.fetchLogs(client);
+  }
+
+  public async setSampleRate(client: Client, rate: number) {
+    await client.query(this.queries.setSampleRate(rate));
+    this.logSampleRate = rate;
   }
 
   private log(message: string) {
@@ -102,17 +109,14 @@ export class MetisSqlCollector {
   private parseLogs(rawLogs: LogRow[]) {
     return rawLogs
       .map((log) => {
-        if (log.message.includes('logs.postgres_logs')) return;
         try {
           const { log_time: logTime, database_name: dbName, message, query_id: queryId } = log;
-          if (this.queryIdsSet.has(queryId)) return;
           const [durationString, planObj] = message.split('plan:');
           const parsed = JSON.parse(planObj.trim());
           const { ['Query Text']: query, ...plan } = parsed;
-          if (!query) return;
+          if (!query || ExcludedQueriesPrefixes.some((prefix) => query.startsWith(prefix))) return;
           const { traceId, spanId } = this.parseContext(query);
           const { duration, endTime } = this.parseDuration(logTime, durationString);
-          this.queryIdsSet.add(queryId);
           return JSON.stringify({
             kind: 'SpanKind.CLIENT',
             context: {
