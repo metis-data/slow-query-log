@@ -64,8 +64,13 @@ export class MetisSqlCollector {
   }
 
   public async setSampleRate(client: Client, rate: number) {
-    await client.query(this.queries.setSampleRate(rate));
-    this.logSampleRate = rate;
+    try {
+      await client.query(this.queries.setSampleRate(rate));
+      await client.query(this.queries.reloadConf);
+      this.logSampleRate = rate;
+    } catch (e) {
+      this.log(`Could not set sample rate: ${e.message}`);
+    }
   }
 
   private log(message: string) {
