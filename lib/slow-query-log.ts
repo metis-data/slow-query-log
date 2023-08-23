@@ -119,7 +119,7 @@ export class MetisSqlCollector {
           const [durationString, planObj] = message.split('plan:');
           const parsed = JSON.parse(planObj.trim());
           const { ['Query Text']: query, ...plan } = parsed;
-          if (!query || ExcludedQueriesPrefixes.some((prefix) => query.startsWith(prefix))) return;
+          if (!query || ExcludedQueriesPrefixes.some((prefix) => query.startsWith(prefix))) return undefined;
           const { traceId, spanId } = this.parseContext(query);
           const { duration, endTime } = this.parseDuration(logTime, durationString);
           return JSON.stringify({
@@ -147,7 +147,7 @@ export class MetisSqlCollector {
           });
         } catch (e) {
           this.log(`Parse failed: ${e}`);
-          return;
+          return undefined;
         }
       })
       .filter((log) => log);
