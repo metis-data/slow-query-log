@@ -84,17 +84,4 @@ export type LogRow = {
   query_id?: string;
 };
 
-export const ExcludedQueriesPrefixes = [
-  'SELECT public.load_postgres',
-  'SELECT log_time, database_name, command_tag',
-  'SELECT file_name FROM public.list_postgres',
-  'SELECT public.create_foreign_table_for_log',
-  'SELECT * FROM pg_ls_dir',
-  'SELECT name, setting FROM pg_settings',
-  'SELECT EXISTS (SELECT 1 FROM pg_available',
-  'SELECT count(1) FROM pg_catalog.pg_extension',
-  'SELECT count(1) FROM pg_catalog.pg_foreign',
-  'SELECT set_config(',
-  'SELECT count(1) FROM information_schema',
-  'SELECT 1 FROM pg_catalog.pg_settings',
-];
+export const ExcludedQueriesPrefixes = ['/* metis */'];
