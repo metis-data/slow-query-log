@@ -29,6 +29,7 @@ export class MetisSqlCollector {
   private readonly autoRun: boolean;
   private readonly inDebug: boolean;
   private logSampleRate: number;
+  private isAvailable: boolean = false;
   // Set the first call to fetch logs from last 1 minute
   private lastLogTime: string = new Date(new Date().getTime() - 60_000).toISOString().replace('T', ' ');
 
@@ -52,6 +53,8 @@ export class MetisSqlCollector {
   }
 
   public async setup(client: Client) {
+    await this.checkFeatureAvailability(client);
+    if (!this.isAvailable) return;
     await this.setSampleRate(client, this.logSampleRate);
     await this.enableSlowQueryLogs(client);
     if (this.autoRun) {
@@ -77,6 +80,31 @@ export class MetisSqlCollector {
     if (this.inDebug) {
       this.logger.log(message);
     }
+  }
+
+  private async checkFeatureAvailability(client: Client) {
+    try {
+      await Promise.all(
+        Object.entries(this.queries.checkAvailability).map(async ([query, res]: [query: string, res: any]) => {
+          const result = (await client.query(query)).rows;
+          if (result[0]?.version?.startsWith('PostgreSQL')) {
+            const version = parseFloat(result[0].version.split(' ')?.[1] || '');
+            if (version < 14) {
+              this.log('Postgres version must be 14.x or later');
+              throw new Error('Database configuration are not set to enable slow query log');
+            }
+          } else {
+            if (result[0][res.name] !== res.val && !result[0][res.name].includes(res.val)) {
+              this.log(`Database parameter ${res.name} should be set to ${res.val}`);
+              throw new Error('Database configuration are not set to enable slow query log');
+            }
+          }
+        }),
+      );
+    } catch (e) {
+      this.isAvailable = false;
+    }
+    this.isAvailable = true;
   }
 
   private async enableSlowQueryLogs(client: Client) {

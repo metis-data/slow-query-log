@@ -1,4 +1,11 @@
 export const QUERIES = {
+  checkAvailability: {
+    'select version();': {},
+    'SHOW logging_collector;': { name: 'logging_collector', val: 'on' },
+    'SHOW log_destination;': { name: 'log_destination', val: 'csvlog' },
+    'SHOW log_filename;': { name: 'log_filename', val: 'postgresql.log.%Y-%m-%d-%H' },
+    'SHOW log_rotation_age;': { name: 'log_rotation_age', val: '1h' },
+  },
   enableLogs: [
     `LOAD 'auto_explain';`,
     `SET auto_explain.log_format = 'json';`,
