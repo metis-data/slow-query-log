@@ -24,14 +24,11 @@ export const QUERIES = {
   loadLogs: '/* metis */ SELECT public.load_postgres_log_files();',
   getLogs: (time: string, byTrace: boolean, dbName: string) => `
     /* metis */
-    SELECT log_time, database_name, command_tag, message, detail, internal_query, query_id
+    SELECT log_time, database_name, command_tag, virtual_transaction_id, message, detail, internal_query, query_id
     FROM logs.postgres_logs 
-    WHERE command_tag IN ('SELECT', 'UPDATE', 'INSERT', 'DELETE')  
+    WHERE command_tag IN ('SELECT', 'UPDATE', 'INSERT', 'DELETE', 'BIND', 'PARSE')  
       ${byTrace ? `AND message LIKE '%traceparent=%'` : ''}
       ${dbName ? `AND database_name = '${dbName}'` : ''}
-      AND query_id <> 0 
-      AND query_id IS NOT NULL
-      AND message LIKE '%plan:%' 
       AND log_time > '${time}'
   ;`,
   createLogFunction: `

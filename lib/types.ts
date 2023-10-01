@@ -84,4 +84,13 @@ export type LogRow = {
   query_id?: string;
 };
 
+export enum CommandTag {
+  SELECT = 'SELECT',
+  INSERT = 'INSERT',
+  UPDATE = 'UPDATE',
+  DELETE = 'DELETE',
+  BIND = 'BIND',
+  PARSE = 'PARSE',
+}
+
 export const ExcludedQueriesPrefixes = ['/* metis */'];

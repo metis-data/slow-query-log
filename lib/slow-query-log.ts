@@ -2,6 +2,7 @@ import { Client } from 'pg';
 import { QUERIES } from './queries';
 import {
   AWS_CONTEXT,
+  CommandTag,
   ExcludedQueriesPrefixes,
   getProps,
   LogRow,
@@ -133,6 +134,12 @@ export class MetisSqlCollector {
     }
   }
 
+  private getQueryIdFromTransaction(transactionId: string, logs: LogRow[]) {
+    const transactionLogs = logs.filter((log) => log.virtual_transaction_id === transactionId);
+    const logWithQueryId = transactionLogs.find((log) => log.query_id);
+    return logWithQueryId?.query_id || '';
+  }
+
   private setLastLogTime(lastLog: any) {
     if (lastLog) {
       this.lastLogTime = new Date(lastLog.log_time).toISOString().replace('T', ' ');
@@ -140,12 +147,17 @@ export class MetisSqlCollector {
   }
 
   private parseLogs(rawLogs: LogRow[]) {
-    return rawLogs
+    const bindLogs = rawLogs.filter((log) => log.command_tag === CommandTag.BIND);
+    const parseLogs = rawLogs.filter((log) => log.command_tag === CommandTag.PARSE);
+    const logsWithPlan = rawLogs.filter((log) => log.message.includes('plan:'));
+    return logsWithPlan
       .map((log) => {
         try {
-          const { log_time: logTime, database_name: dbName, message, query_id: queryId } = log;
-          const [durationString, planObj] = message.split('plan:');
-          const parsed = JSON.parse(planObj.trim());
+          const { log_time: logTime, database_name: dbName, virtual_transaction_id: transactionId, message } = log;
+          const queryId = log.query_id ?? this.getQueryIdFromTransaction(transactionId, [...bindLogs, ...parseLogs]);
+          if (!queryId) return undefined;
+          const [durationString, ...planObj] = message.split('plan:');
+          const parsed = JSON.parse(planObj.join('plan:').trim());
           const { ['Query Text']: query, ...plan } = parsed;
           if (!query || ExcludedQueriesPrefixes.some((prefix) => query.trim().startsWith(prefix))) return undefined;
           const { traceId, spanId } = this.parseContext(query);
