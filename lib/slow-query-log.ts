@@ -154,7 +154,10 @@ export class MetisSqlCollector {
       .map((log) => {
         try {
           const { log_time: logTime, database_name: dbName, virtual_transaction_id: transactionId, message } = log;
-          const queryId = log.query_id ?? this.getQueryIdFromTransaction(transactionId, [...bindLogs, ...parseLogs]);
+          const queryId =
+            log.query_id !== '0'
+              ? log.query_id
+              : this.getQueryIdFromTransaction(transactionId, [...bindLogs, ...parseLogs]);
           const [durationString, ...planObj] = message.split('plan:');
           const parsed = JSON.parse(planObj.join('plan:').trim());
           const { ['Query Text']: query, ...plan } = parsed;
