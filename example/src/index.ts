@@ -15,8 +15,12 @@ async function setClient() {
   // execSync(
   //   `psql -h $HOSTNAME -U $USER -d $DATABASE -a -f ./dump.sql`,
   // );
-  metis = new MetisSqlCollector({ autoRun: true, byTrace: false });
+  metis = new MetisSqlCollector({ autoRun: false, byTrace: false, dbName: 'demo' });
   await metis.setup(client);
+
+  const res = await metis.run(client);
+
+  console.log(res);
 }
 setClient();
 

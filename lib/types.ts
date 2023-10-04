@@ -1,4 +1,13 @@
 import { Client } from 'pg';
+import { PlanHandler } from './handlers/plan.handler';
+import { LogsHandler } from './handlers/logs.handler';
+
+export enum Extensions {
+  PG_STORE_PLANS = 'pg_store_plans',
+  FILE_FDW = 'file_fdw',
+  LOG_FDW = 'log_fdw',
+  STAT_STATEMENTS = 'pg_stat_statements',
+}
 
 export type MetisSqlCollectorOptions = {
   connectionString?: string;
@@ -10,6 +19,7 @@ export type MetisSqlCollectorOptions = {
   serviceName?: string;
   dbName?: string;
   byTrace?: boolean;
+  exportResults?: boolean;
   logger?: any;
   debug?: boolean;
   autoRun?: boolean;
@@ -29,6 +39,7 @@ const DefaultProps = {
   serviceName: process.env.METIS_SERVICE_NAME || 'default',
   debug: process.env.METIS_DEBUG === 'true',
   autoRun: false,
+  exportResults: true,
   byTrace: true,
   dbName: process.env.DB_NAME || '',
   logger: { log: console.log, info: console.log, error: console.error },
@@ -52,6 +63,7 @@ export function getProps(props: MetisSqlCollectorOptions) {
     serviceName: props.serviceName || DefaultProps.serviceName,
     debug: props.debug || DefaultProps.debug,
     autoRun: props.autoRun || DefaultProps.autoRun,
+    exportResults: props.exportResults === true ? true : DefaultProps.exportResults,
     byTrace: props.byTrace === false ? false : DefaultProps.byTrace,
     dbName: props.dbName || DefaultProps.dbName,
     logger,
@@ -84,6 +96,14 @@ export type LogRow = {
   query_id?: string;
 };
 
+export type PlanRow = {
+  query: string;
+  plan: any;
+  last_call: string;
+  duration: string;
+  query_id: string;
+};
+
 export enum CommandTag {
   SELECT = 'SELECT',
   INSERT = 'INSERT',
@@ -94,3 +114,27 @@ export enum CommandTag {
 }
 
 export const ExcludedQueriesPrefixes = ['/* metis */'];
+
+export const getHandler = {
+  [Extensions.PG_STORE_PLANS]: (
+    logger: any,
+    queries: any,
+    configs: MetisSqlCollectorConfigs,
+    dbName: string,
+    byTrace: boolean,
+  ) => new PlanHandler(logger, queries, configs, dbName, byTrace),
+  [Extensions.FILE_FDW]: (
+    logger: any,
+    queries: any,
+    configs: MetisSqlCollectorConfigs,
+    dbName: string,
+    byTrace: boolean,
+  ) => new LogsHandler(logger, queries, configs, dbName, byTrace),
+  [Extensions.LOG_FDW]: (
+    logger: any,
+    queries: any,
+    configs: MetisSqlCollectorConfigs,
+    dbName: string,
+    byTrace: boolean,
+  ) => new LogsHandler(logger, queries, configs, dbName, byTrace),
+};
