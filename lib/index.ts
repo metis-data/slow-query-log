@@ -1,1 +1,1 @@
-export { MetisSqlCollector } from './slow-query-log';
+export { MetisSqlCollector } from './plan-collector';
