@@ -17,18 +17,8 @@ export class Handler {
   }
 
   public async setup(client: Client) {
-    const dbNames = await this.getDatabaseNames(client);
-    this.dbNames.push(...dbNames);
-    await Promise.all(
-      this.dbNames.map(async (db) => {
-        const connectionString = `${this.configs.connectionString}/${db}`;
-        const dbClient = await this.getDbClient(connectionString);
-        await this.createExtension(dbClient, this.configs.extension);
-        await this.enableFeature(dbClient);
-
-        await dbClient.end();
-      }),
-    );
+    await this.createExtension(client, this.configs.extension);
+    await this.enableFeature(client);
   }
 
   protected async getDbClient(connectionString: string) {
@@ -82,9 +72,4 @@ export class Handler {
   public async createExtension(client: Client, extension?: string): Promise<void> {}
   public async enableFeature(client: Client): Promise<any> {}
   public async fetchData(extension?: string): Promise<any> {}
-
-  private async getDatabaseNames(client: Client): Promise<string[]> {
-    const { rows } = await client.query(QUERIES.getDatabaseNames);
-    return rows.map((row) => row.datname);
-  }
 }

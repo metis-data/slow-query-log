@@ -28,7 +28,6 @@ export class MetisSqlCollector {
   private readonly serviceName: string;
   private readonly exportResults: boolean;
   private readonly autoRun: boolean;
-  private readonly inDebug: boolean;
 
   constructor(props: MetisSqlCollectorOptions = {}) {
     const options: MetisSqlCollectorOptions = getProps(props);
@@ -39,7 +38,6 @@ export class MetisSqlCollector {
     this.metisApiKey = options.metisApiKey;
     this.serviceName = options.serviceName;
     this.logger = options.logger;
-    this.inDebug = options.debug;
     this.exportResults = options.exportResults;
     this.autoRun = props.autoRun;
   }
@@ -64,12 +62,6 @@ export class MetisSqlCollector {
 
   private parseConnections(connectionStrings: string | string[]) {
     return Array.isArray(connectionStrings) ? connectionStrings : connectionStrings.split(';');
-  }
-
-  private log(message: string) {
-    if (this.inDebug) {
-      this.logger.log(message);
-    }
   }
 
   private async setupHandlers() {
@@ -146,7 +138,7 @@ export class MetisSqlCollector {
           throw new Error(`Bad status code: ${res.statusCode}, ${JSON.stringify(contexts)}`);
         }
       } catch (e) {
-        this.log(`Error in logs export: ${e}`);
+        this.logger.error(`Error in logs export: ${e}`);
       }
     }
   }

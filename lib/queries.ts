@@ -29,10 +29,9 @@ export const QUERIES = {
     `SET log_min_duration_statement = 0;`,
     `SET compute_query_id = 'on'`,
   ],
-  getDatabaseNames: 'SELECT datname FROM pg_database WHERE datistemplate = false;',
   setSampleRate: (rate: number) => `ALTER SYSTEM SET log_statement_sample_rate = ${rate};`,
   reloadConf: '/* metis */ SELECT pg_reload_conf();',
-  loadLogs: (extension: string) => `/* metis */ SELECT public.load_postgres_log_files('${extension}');`,
+  loadLogs: '/* metis */ SELECT public.load_postgres_log_files();',
   getLogs: (time: string) => `
     /* metis */
     SELECT log_time, database_name, command_tag, virtual_transaction_id, message, detail, internal_query, query_id
@@ -42,18 +41,21 @@ export const QUERIES = {
   ;`,
   getPlans: (time: string) => `
     /* metis */
-    SELECT query, plan, last_call, psp.mean_time as duration, pss.queryid as query_id from pg_stat_statements pss
+    SELECT pd.datname as database_name, query, plan, last_call, psp.mean_time as duration, pss.queryid as query_id from pg_stat_statements pss
     JOIN pg_store_plans psp on pss.queryid = psp.queryid and pss.dbid = psp.dbid
     JOIN pg_database pd on psp.dbid = pd.oid
     WHERE last_call > '${time}'
     ORDER BY last_call desc
     ;`,
   createLogFunction: `
-    CREATE OR REPLACE FUNCTION public.load_postgres_log_files(v_extension_name TEXT, v_schema_name TEXT DEFAULT 'logs', v_table_name TEXT DEFAULT 'postgres_logs', v_prefer_csv BOOLEAN DEFAULT TRUE)
+    CREATE OR REPLACE FUNCTION public.load_postgres_log_files(v_schema_name TEXT DEFAULT 'logs', v_table_name TEXT DEFAULT 'postgres_logs', v_prefer_csv BOOLEAN DEFAULT TRUE)
     RETURNS TEXT
     AS
     $BODY$
     DECLARE
+    v_extension_name TEXT;
+    v_log_fdw_available BOOLEAN;
+    v_store_plans_available BOOLEAN;
     v_csv_supported INT := 0;
     v_hour_pattern_used INT := 0;
     v_filename TEXT;
@@ -67,6 +69,17 @@ export const QUERIES = {
     v_filelist_sql TEXT;
     v_enable_csv BOOLEAN := TRUE;
     BEGIN        
+      EXECUTE FORMAT('SELECT EXISTS (SELECT 1 FROM pg_available_extensions WHERE name=%L)', 'pg_store_plans') INTO v_store_plans_available;
+      IF v_store_plans_available = TRUE THEN
+        v_extension_name := 'pg_store_plans';
+      ELSE
+        EXECUTE FORMAT('SELECT EXISTS (SELECT 1 FROM pg_available_extensions WHERE name=%L)', 'log_fdw') INTO v_log_fdw_available;
+        IF v_log_fdw_available = TRUE THEN
+          v_extension_name := 'log_fdw';
+        ELSE
+          v_extension_name := 'file_fdw';
+        END IF;
+      END IF;
       IF v_extension_name = 'file_fdw' THEN
         CREATE OR REPLACE FUNCTION public.list_postgres_log_files()
         RETURNS TABLE (file_name TEXT)

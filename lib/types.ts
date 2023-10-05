@@ -33,9 +33,8 @@ const DefaultProps = {
   logFetchInterval: parseInt(process.env.LOG_FETCH_INTERVAL, 10) || 60_000,
   metisExportUrl: process.env.METIS_EXPORTER_URL || 'https://ingest.metisdata.io/',
   serviceName: process.env.METIS_SERVICE_NAME || 'default',
-  debug: process.env.METIS_DEBUG === 'true',
   autoRun: false,
-  exportResults: true,
+  exportResults: false,
   logger: { log: console.log, info: console.log, error: console.error },
 };
 
@@ -53,7 +52,6 @@ export function getProps(props: MetisSqlCollectorOptions) {
     logFetchInterval: props.logFetchInterval || DefaultProps.logFetchInterval,
     metisExportUrl: props.metisExportUrl || DefaultProps.metisExportUrl,
     serviceName: props.serviceName || DefaultProps.serviceName,
-    debug: props.debug || DefaultProps.debug,
     autoRun: props.autoRun || DefaultProps.autoRun,
     exportResults: props.exportResults || DefaultProps.exportResults,
     logger,
@@ -87,6 +85,7 @@ export type LogRow = {
 };
 
 export type PlanRow = {
+  database_name: string;
   query: string;
   plan: any;
   last_call: string;
