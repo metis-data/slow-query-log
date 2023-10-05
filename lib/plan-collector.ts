@@ -43,11 +43,13 @@ export class MetisSqlCollector {
   }
 
   public async setup() {
-    await this.setupHandlers();
+    const res = await this.setupHandlers();
 
     if (this.autoRun) {
       await this.autoFetchLogs();
     }
+
+    return res;
   }
 
   public async run() {
@@ -65,26 +67,39 @@ export class MetisSqlCollector {
   }
 
   private async setupHandlers() {
+    const res = {};
     await Promise.all(
       this.connections.map(async (connection) => {
-        const { host, port } = parse(connection);
-        const client = await this.getDbClient(connection);
-        const extension = await this.getAvailableExtension(client);
-        const handler = getHandler[extension](this.logger, {
-          extension,
-          host: `${host}:${port}`,
-          serviceName: this.serviceName,
-          connectionString: connection,
-        });
-        const isAvailable = await handler.checkFeatureAvailability(client);
-        if (isAvailable) {
-          this.handlers.push(handler);
-          await handler.setup(client);
-        }
+        let client: Client;
+        try {
+          const { host, port } = parse(connection);
+          client = await this.getDbClient(connection);
 
-        await client.end();
+          const extension = await this.getAvailableExtension(client);
+          if (!extension) throw new Error('extension is not available');
+
+          const handler = getHandler[extension](this.logger, {
+            extension,
+            host: `${host}:${port}`,
+            serviceName: this.serviceName,
+            connectionString: connection,
+          });
+          const isAvailable = await handler.checkFeatureAvailability(client);
+          if (isAvailable) {
+            this.handlers.push(handler);
+            await handler.setup(client);
+          } else throw new Error('feature is not available on this database');
+
+          await client.end();
+          res[connection] = 'Setup succeeded';
+        } catch (e) {
+          res[connection] = `Setup failed error: ${e.message}`;
+          await client?.end();
+        }
       }),
     );
+
+    return res;
   }
 
   private async getDbClient(connectionString: string) {

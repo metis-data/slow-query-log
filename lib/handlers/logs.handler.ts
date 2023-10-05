@@ -39,17 +39,21 @@ export class LogsHandler extends Handler {
   }
 
   public async fetchData() {
-    const client = await this.getDbClient(this.configs.connectionString);
-    await client.query(QUERIES.loadLogs);
-    const { rows } = await client.query(QUERIES.getLogs(this.lastLogTime));
-    await client.end();
+    try {
+      const client = await this.getDbClient(this.configs.connectionString);
+      await client.query(QUERIES.loadLogs);
+      const { rows } = await client.query(QUERIES.getLogs(this.lastLogTime));
+      await client.end();
 
-    if (rows.length) {
-      this.setLastLogTime(rows.at(-1));
-      return { [this.configs.host]: this.parseLogs(rows) };
+      if (rows.length) {
+        this.setLastLogTime(rows.at(-1));
+        return { [this.configs.host]: this.parseLogs(rows) };
+      }
+
+      return { [this.configs.host]: 'No data' };
+    } catch (e) {
+      return { [this.configs.host]: `Failed to fetch data: ${e.message}` };
     }
-
-    return { [this.configs.host]: {} };
   }
 
   private parseLogs(rawLogs: LogRow[]) {

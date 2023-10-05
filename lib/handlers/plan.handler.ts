@@ -20,15 +20,19 @@ export class PlanHandler extends Handler {
   }
 
   public async fetchData() {
-    const client = await this.getDbClient(this.configs.connectionString);
-    const { rows } = await client.query(QUERIES.getPlans(this.lastLogTime));
+    try {
+      const client = await this.getDbClient(this.configs.connectionString);
+      const { rows } = await client.query(QUERIES.getPlans(this.lastLogTime));
 
-    if (rows.length) {
-      this.setLastLogTime(rows[0]);
-      return { [this.configs.host]: this.parseLogs(rows) };
+      if (rows.length) {
+        this.setLastLogTime(rows[0]);
+        return { [this.configs.host]: this.parseLogs(rows) };
+      }
+
+      return { [this.configs.host]: 'No data' };
+    } catch (e) {
+      return { [this.configs.host]: `Failed to fetch data: ${e.message}` };
     }
-
-    return { [this.configs.host]: {} };
   }
 
   private parseLogs(rawPlans: PlanRow[]) {
