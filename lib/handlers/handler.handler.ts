@@ -1,21 +1,34 @@
 import { Client } from 'pg';
-import { LogRow, MetisSqlCollectorConfigs } from '../types';
+import { LogRow, MetisHandlerConfigs } from '../types';
 import { v4 as uuid } from 'uuid';
+import { QUERIES } from '../queries';
 
 export class Handler {
   protected lastLogTime: string = new Date(new Date().getTime() - 60_000).toISOString().replace('T', ' ');
+  protected readonly configs: MetisHandlerConfigs;
+  protected readonly extension: string;
   protected readonly logger: any;
-  protected readonly queries: any;
-  protected readonly configs: MetisSqlCollectorConfigs;
-  protected readonly dbName: string;
-  protected readonly byTrace: boolean;
+  protected readonly dbNames: string[];
 
-  constructor(logger: any, queries: any, configs: MetisSqlCollectorConfigs, dbName: string, byTrace: boolean) {
-    this.logger = logger;
-    this.queries = queries;
+  constructor(logger: any, configs: MetisHandlerConfigs) {
     this.configs = configs;
-    this.dbName = dbName;
-    this.byTrace = byTrace;
+    this.logger = logger;
+    this.dbNames = [];
+  }
+
+  public async setup(client: Client) {
+    await this.createExtension(client, this.configs.extension);
+    await this.enableFeature(client);
+  }
+
+  protected async getDbClient(connectionString: string) {
+    try {
+      const client = new Client({ connectionString });
+      await client.connect();
+      return client;
+    } catch (e) {
+      this.logger.error(`Could not connect to database ${connectionString}`);
+    }
   }
 
   protected setLastLogTime(lastLog: any) {
@@ -46,7 +59,7 @@ export class Handler {
 
   public async checkFeatureAvailability(client: Client): Promise<boolean> {
     // Check that pg version is 14+
-    const { rows: versionRows } = await client.query(this.queries.getVersion);
+    const { rows: versionRows } = await client.query(QUERIES.getVersion);
     const version = parseFloat(versionRows[0].version.split(' ')?.[1] || '');
     if (version < 14) {
       this.logger.log('Postgres version must be 14.x or later');
@@ -58,5 +71,5 @@ export class Handler {
 
   public async createExtension(client: Client, extension?: string): Promise<void> {}
   public async enableFeature(client: Client): Promise<any> {}
-  public async fetchData(client: Client, extension?: string): Promise<any> {}
+  public async fetchData(extension?: string): Promise<any> {}
 }

@@ -5,12 +5,12 @@ import {
   Extensions,
   getHandler,
   getProps,
-  MetisSqlCollectorConfigs,
   MetisSqlCollectorOptions,
   REQUEST_ID,
   REQUEST_ID_HEADER,
   Response,
   RESPONSE,
+  toObj,
   X_RAY,
   X_RAY_HEADER,
 } from './types';
@@ -19,56 +19,40 @@ import { parse } from 'pg-connection-string';
 import { Handler } from './handlers/handler.handler';
 
 export class MetisSqlCollector {
-  private handler: Handler;
-  private readonly configs: MetisSqlCollectorConfigs;
+  private readonly connections: string[];
+  private readonly handlers: Handler[];
   private readonly logger: { log?: any; info?: any; error: any };
   private readonly logFetchInterval: number;
   private readonly metisExporterUrl: string;
   private readonly metisApiKey: string;
-  private readonly dbName: string;
+  private readonly serviceName: string;
   private readonly exportResults: boolean;
-  private readonly byTrace: boolean;
   private readonly autoRun: boolean;
-  private readonly inDebug: boolean;
-  private logSampleRate: number;
-  private extension: Extensions;
 
   constructor(props: MetisSqlCollectorOptions = {}) {
     const options: MetisSqlCollectorOptions = getProps(props);
-    const dbConfig = parse(options.connectionString);
+    this.connections = this.parseConnections(options.connectionStrings);
+    this.handlers = [];
     this.logFetchInterval = options.logFetchInterval;
-    this.logSampleRate = options.logSampleRate;
     this.metisExporterUrl = options.metisExportUrl;
     this.metisApiKey = options.metisApiKey;
-    this.configs = { dbHost: dbConfig.host, serviceName: options.serviceName };
+    this.serviceName = options.serviceName;
     this.logger = options.logger;
-    this.inDebug = options.debug;
-    this.dbName = options.dbName;
     this.exportResults = options.exportResults;
-    this.byTrace = options.byTrace;
     this.autoRun = props.autoRun;
   }
 
-  get queries() {
-    return QUERIES;
-  }
+  public async setup() {
+    await this.setupHandlers();
 
-  public async setup(client: Client) {
-    await this.getAvailableExtension(client);
-    this.handler = getHandler[this.extension](this.logger, this.queries, this.configs, this.dbName, this.byTrace);
-    const isAvailable = await this.handler.checkFeatureAvailability(client);
-    if (!isAvailable) return;
-
-    await this.handler.createExtension(client, this.extension);
-    await this.setSampleRate(client, this.logSampleRate);
-    await this.handler.enableFeature(client);
     if (this.autoRun) {
-      await this.autoFetchLogs(client);
+      await this.autoFetchLogs();
     }
   }
 
-  public async run(client: Client) {
-    const spans = await this.handler.fetchData(client, this.extension);
+  public async run() {
+    const res = await Promise.all(this.handlers.map((handler) => handler.fetchData()));
+    const spans = toObj(res);
     if (this.exportResults) {
       await this.exportLogs(spans);
     }
@@ -76,43 +60,60 @@ export class MetisSqlCollector {
     return spans;
   }
 
-  public async setSampleRate(client: Client, rate: number) {
-    try {
-      await client.query(this.queries.setSampleRate(rate));
-      await client.query(this.queries.reloadConf);
-      this.logSampleRate = rate;
-    } catch (e) {
-      this.log(`Could not set sample rate: ${e.message}`);
-    }
+  private parseConnections(connectionStrings: string | string[]) {
+    return Array.isArray(connectionStrings) ? connectionStrings : connectionStrings.split(';');
   }
 
-  private log(message: string) {
-    if (this.inDebug) {
-      this.logger.log(message);
+  private async setupHandlers() {
+    await Promise.all(
+      this.connections.map(async (connection) => {
+        const { host, port } = parse(connection);
+        const client = await this.getDbClient(connection);
+        const extension = await this.getAvailableExtension(client);
+        const handler = getHandler[extension](this.logger, {
+          extension,
+          host: `${host}:${port}`,
+          serviceName: this.serviceName,
+          connectionString: connection,
+        });
+        const isAvailable = await handler.checkFeatureAvailability(client);
+        if (isAvailable) {
+          this.handlers.push(handler);
+          await handler.setup(client);
+        }
+
+        await client.end();
+      }),
+    );
+  }
+
+  private async getDbClient(connectionString: string) {
+    try {
+      const client = new Client({ connectionString });
+      await client.connect();
+      return client;
+    } catch (e) {
+      this.logger.error(`Could not connect to database ${connectionString}`);
     }
   }
 
   private async getAvailableExtension(client: Client) {
     // This has a certain order of precedence:
     // First, pg_store_plans, then either file_fdw/log_fdw depends on availability
-    const { rows } = await client.query(this.queries.getExtensions);
+    const { rows } = await client.query(QUERIES.getExtensions);
     const extensions = rows.map((extension) => extension.name);
-    if (extensions.includes(Extensions.FILE_FDW)) this.extension = Extensions.FILE_FDW;
-    if (extensions.includes(Extensions.LOG_FDW)) this.extension = Extensions.LOG_FDW;
-    if (extensions.includes(Extensions.PG_STORE_PLANS)) this.extension = Extensions.PG_STORE_PLANS;
+    if (extensions.includes(Extensions.PG_STORE_PLANS)) return Extensions.PG_STORE_PLANS;
+    if (extensions.includes(Extensions.LOG_FDW)) return Extensions.LOG_FDW;
+    if (extensions.includes(Extensions.FILE_FDW)) return Extensions.FILE_FDW;
   }
 
-  private async autoFetchLogs(client: Client) {
+  private async autoFetchLogs() {
     setInterval(async () => {
-      const spans = await this.handler.fetchData(client, this.extension);
-
-      if (this.exportResults) {
-        await this.exportLogs(spans);
-      }
+      await this.run();
     }, this.logFetchInterval);
   }
 
-  private async exportLogs(data: string[]) {
+  private async exportLogs(data: any) {
     for (const send of MetisSqlCollector.chunk(data)) {
       try {
         const dataString = JSON.stringify(send);
@@ -137,7 +138,7 @@ export class MetisSqlCollector {
           throw new Error(`Bad status code: ${res.statusCode}, ${JSON.stringify(contexts)}`);
         }
       } catch (e) {
-        this.log(`Error in logs export: ${e}`);
+        this.logger.error(`Error in logs export: ${e}`);
       }
     }
   }
