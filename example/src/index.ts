@@ -1,24 +1,15 @@
 import express from 'express';
 import { Client } from 'pg';
-import { execSync } from 'child_process';
 import { exampleQueries } from './exampleQueries';
 import { MetisSqlCollector } from '@metis-data/slow-query-log';
 
 let client: Client;
 let metis: MetisSqlCollector;
 async function setClient() {
-  const connectionString = process.env.DATABASE_URL;
-  client = new Client({ connectionString });
-  await client.connect();
+  metis = new MetisSqlCollector();
+  await metis.setup();
 
-  // Enable for seed, replace $HOSTNAME, $USER, $DATABASE with real values
-  // execSync(
-  //   `psql -h $HOSTNAME -U $USER -d $DATABASE -a -f ./dump.sql`,
-  // );
-  metis = new MetisSqlCollector({ autoRun: false, byTrace: false, dbName: 'demo' });
-  await metis.setup(client);
-
-  const res = await metis.run(client);
+  const res = await metis.run();
 
   console.log(res);
 }

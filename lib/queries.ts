@@ -29,25 +29,23 @@ export const QUERIES = {
     `SET log_min_duration_statement = 0;`,
     `SET compute_query_id = 'on'`,
   ],
+  getDatabaseNames: 'SELECT datname FROM pg_database WHERE datistemplate = false;',
   setSampleRate: (rate: number) => `ALTER SYSTEM SET log_statement_sample_rate = ${rate};`,
   reloadConf: '/* metis */ SELECT pg_reload_conf();',
   loadLogs: (extension: string) => `/* metis */ SELECT public.load_postgres_log_files('${extension}');`,
-  getLogs: (time: string, byTrace: boolean, dbName: string) => `
+  getLogs: (time: string) => `
     /* metis */
     SELECT log_time, database_name, command_tag, virtual_transaction_id, message, detail, internal_query, query_id
     FROM logs.postgres_logs 
-    WHERE command_tag IN ('SELECT', 'UPDATE', 'INSERT', 'DELETE', 'BIND', 'PARSE')  
-      ${byTrace ? `AND message LIKE '%traceparent=%'` : ''}
-      ${dbName ? `AND database_name = '${dbName}'` : ''}
+    WHERE command_tag IN ('SELECT', 'UPDATE', 'INSERT', 'DELETE', 'BIND', 'PARSE')
       AND log_time > '${time}'
   ;`,
-  getPlans: (time: string, dbName: string) => `
+  getPlans: (time: string) => `
     /* metis */
     SELECT query, plan, last_call, psp.mean_time as duration, pss.queryid as query_id from pg_stat_statements pss
     JOIN pg_store_plans psp on pss.queryid = psp.queryid and pss.dbid = psp.dbid
     JOIN pg_database pd on psp.dbid = pd.oid
-    WHERE datname = '${dbName}'
-    AND last_call > '${time}'
+    WHERE last_call > '${time}'
     ORDER BY last_call desc
     ;`,
   createLogFunction: `

@@ -1,4 +1,3 @@
-import { Client } from 'pg';
 import { PlanHandler } from './handlers/plan.handler';
 import { LogsHandler } from './handlers/logs.handler';
 
@@ -10,62 +9,53 @@ export enum Extensions {
 }
 
 export type MetisSqlCollectorOptions = {
-  connectionString?: string;
-  client?: Client;
+  connectionStrings?: string | string[];
   metisApiKey?: string;
   logFetchInterval?: number;
-  logSampleRate?: number;
   metisExportUrl?: string;
   serviceName?: string;
-  dbName?: string;
-  byTrace?: boolean;
   exportResults?: boolean;
   logger?: any;
   debug?: boolean;
   autoRun?: boolean;
 };
 
-export type MetisSqlCollectorConfigs = {
-  dbHost?: string;
+export type MetisHandlerConfigs = {
+  connectionString?: string;
+  host?: string;
+  extension?: string;
   serviceName?: string;
 };
 
 const DefaultProps = {
-  connectionString: process.env.DATABASE_URL,
+  connectionStrings: process.env.DATABASE_URL,
   metisApiKey: process.env.METIS_API_KEY,
   logFetchInterval: parseInt(process.env.LOG_FETCH_INTERVAL, 10) || 60_000,
-  logSampleRate: parseFloat(process.env.LOG_SAMPLE_RATE) || 1.0,
   metisExportUrl: process.env.METIS_EXPORTER_URL || 'https://ingest.metisdata.io/',
   serviceName: process.env.METIS_SERVICE_NAME || 'default',
   debug: process.env.METIS_DEBUG === 'true',
   autoRun: false,
   exportResults: true,
-  byTrace: true,
-  dbName: process.env.DB_NAME || '',
   logger: { log: console.log, info: console.log, error: console.error },
 };
 
 export function getProps(props: MetisSqlCollectorOptions) {
   const logger = props.logger || DefaultProps.logger;
   if (!logger.log && logger.info) logger.log = logger.info;
-  if (!props.connectionString && !DefaultProps.connectionString && !props.client) {
-    logger.error('connection string or database client must be provided');
+  if (!props.connectionStrings && !DefaultProps.connectionStrings) {
+    logger.error('connection string must be provided');
   }
-  if (!props.metisApiKey && !DefaultProps.metisApiKey) {
-    logger.error('metis api key is missing');
+  if (props.exportResults && (!props.metisApiKey || DefaultProps.metisApiKey)) {
+    logger.error('with exportResults enabled metis api key must be provided');
   }
   return {
-    connectionString: props.connectionString || DefaultProps.connectionString,
-    metisApiKey: props.metisApiKey || DefaultProps.metisApiKey,
+    connectionStrings: props.connectionStrings || DefaultProps.connectionStrings,
     logFetchInterval: props.logFetchInterval || DefaultProps.logFetchInterval,
-    logSampleRate: props.logSampleRate || DefaultProps.logSampleRate,
     metisExportUrl: props.metisExportUrl || DefaultProps.metisExportUrl,
     serviceName: props.serviceName || DefaultProps.serviceName,
     debug: props.debug || DefaultProps.debug,
     autoRun: props.autoRun || DefaultProps.autoRun,
-    exportResults: props.exportResults === true ? true : DefaultProps.exportResults,
-    byTrace: props.byTrace === false ? false : DefaultProps.byTrace,
-    dbName: props.dbName || DefaultProps.dbName,
+    exportResults: props.exportResults || DefaultProps.exportResults,
     logger,
   };
 }
@@ -116,25 +106,11 @@ export enum CommandTag {
 export const ExcludedQueriesPrefixes = ['/* metis */'];
 
 export const getHandler = {
-  [Extensions.PG_STORE_PLANS]: (
-    logger: any,
-    queries: any,
-    configs: MetisSqlCollectorConfigs,
-    dbName: string,
-    byTrace: boolean,
-  ) => new PlanHandler(logger, queries, configs, dbName, byTrace),
-  [Extensions.FILE_FDW]: (
-    logger: any,
-    queries: any,
-    configs: MetisSqlCollectorConfigs,
-    dbName: string,
-    byTrace: boolean,
-  ) => new LogsHandler(logger, queries, configs, dbName, byTrace),
-  [Extensions.LOG_FDW]: (
-    logger: any,
-    queries: any,
-    configs: MetisSqlCollectorConfigs,
-    dbName: string,
-    byTrace: boolean,
-  ) => new LogsHandler(logger, queries, configs, dbName, byTrace),
+  [Extensions.PG_STORE_PLANS]: (logger: any, configs: MetisHandlerConfigs) => new PlanHandler(logger, configs),
+  [Extensions.FILE_FDW]: (logger: any, configs: MetisHandlerConfigs) => new LogsHandler(logger, configs),
+  [Extensions.LOG_FDW]: (logger: any, configs: MetisHandlerConfigs) => new LogsHandler(logger, configs),
 };
+
+export function toObj(arr: any[]) {
+  return arr.reduce((acc, obj) => ({ ...acc, ...obj }), {});
+}
