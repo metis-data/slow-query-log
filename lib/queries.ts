@@ -41,11 +41,12 @@ export const QUERIES = {
   ;`,
   getPlans: (time: string) => `
     /* metis */
-    SELECT pd.datname as database_name, query, plan, last_call, psp.mean_time as duration, pss.queryid as query_id from pg_stat_statements pss
-    JOIN pg_store_plans psp on pss.queryid = psp.queryid and pss.dbid = psp.dbid
-    JOIN pg_database pd on psp.dbid = pd.oid
+    SELECT pd.datname as database_name, query, plan, last_call, psp.mean_time as duration, pss.queryid as query_id 
+    FROM pg_stat_statements pss
+    JOIN pg_store_plans psp ON pss.queryid = psp.queryid and pss.dbid = psp.dbid
+    JOIN pg_database pd ON psp.dbid = pd.oid
     WHERE last_call > '${time}'
-    ORDER BY last_call desc
+    ORDER BY last_call DESC
     ;`,
   createLogFunction: `
     CREATE OR REPLACE FUNCTION public.load_postgres_log_files(v_schema_name TEXT DEFAULT 'logs', v_table_name TEXT DEFAULT 'postgres_logs', v_prefer_csv BOOLEAN DEFAULT TRUE)
@@ -229,6 +230,9 @@ export const QUERIES = {
         END IF;
 
       END LOOP;
+      
+      EXECUTE FORMAT('CREATE INDEX IF NOT EXISTS logs_log_time ON %I.%I(log_time)', v_schema_name, v_table_name);
+      EXECUTE FORMAT('CREATE INDEX IF NOT EXISTS logs_command_tag ON %I.%I(command_tag)', v_schema_name, v_table_name);
 
       RETURN FORMAT('Postgres logs loaded to table %I.%I', v_schema_name, v_table_name);
     END;
