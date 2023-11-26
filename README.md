@@ -71,7 +71,7 @@ metis.run();
 
 | parameter                          | value                            | db needs restart? |
 |------------------------------------|----------------------------------|-------------------|
-| session_preload_libraries          | auto_explain                     | yes               |
+| shared_preload_libraries           | auto_explain                     | yes               |
 | logging_collector                  | 'on'                             | yes (locally)     |
 | log_destination                    | 'csvlog'                         | yes (locally)     |
 | log_filename                       | 'postgresql.log.%Y-%m-%d-%H'     | yes (locally)     |
