@@ -166,12 +166,13 @@ export class MetisSqlCollector {
     let result = [];
     let counter = 0;
     for (const item of data) {
-      counter += item.length;
-      result.push(item);
-      if (counter >= limit) {
+      if (counter + item.length > limit) {
         yield result;
         counter = 0;
         result = [];
+      } else {
+        counter += item.length;
+        result.push(item);
       }
     }
     yield result;
