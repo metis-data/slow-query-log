@@ -19,14 +19,15 @@ export const QUERIES = {
   enableLogs: [
     `LOAD 'auto_explain';`,
     `SET auto_explain.log_format = 'json';`,
-    `SET auto_explain.log_min_duration = 0;`,
+    `SET auto_explain.log_min_duration = 10;`,
     `SET auto_explain.log_analyze = true;`,
     `SET auto_explain.log_buffers = true;`,
     `SET auto_explain.log_timing = true;`,
     `SET auto_explain.log_verbose = true;`,
     `SET auto_explain.log_nested_statements = true;`,
     `SET log_statement = 'mod';`,
-    `SET log_min_duration_statement = 0;`,
+    `SET log_min_duration_statement = 10;`,
+    `SET log_statement_sample_rate = 0.01;`,
     `SET compute_query_id = 'on'`,
   ],
   setSampleRate: (rate: number) => `ALTER SYSTEM SET log_statement_sample_rate = ${rate};`,
@@ -176,59 +177,60 @@ export const QUERIES = {
       /* metis */ SELECT 1 INTO v_csv_supported FROM pg_catalog.pg_settings WHERE name='log_destination' AND setting LIKE '%csvlog%';
       IF v_csv_supported = 1 AND v_prefer_csv = TRUE THEN
         RAISE NOTICE 'CSV log format will be used.';
-        v_filelist_sql = FORMAT('/* metis */ SELECT file_name FROM public.list_postgres_log_files() WHERE file_name LIKE %L ORDER BY 1 DESC LIMIT 2', '%.csv');
+        v_filelist_sql = FORMAT('/* metis */ SELECT file_name, file_size_bytes FROM public.list_postgres_log_files() WHERE file_name LIKE %L ORDER BY 1 DESC LIMIT 2', '%.csv');
       ELSE
         RAISE NOTICE 'Default log format will be used.';
-        v_filelist_sql = FORMAT('/* metis */ SELECT file_name FROM public.list_postgres_log_files() WHERE file_name NOT LIKE %L ORDER BY 1 DESC LIMIT 2', '%.csv');
+        v_filelist_sql = FORMAT('/* metis */ SELECT file_name, file_size_bytes FROM public.list_postgres_log_files() WHERE file_name NOT LIKE %L ORDER BY 1 DESC LIMIT 2', '%.csv');
         v_enable_csv = FALSE;
       END IF;
 
-      FOR v_filename IN EXECUTE (v_filelist_sql)
+      FOR v_filename, v_filesize_bytes IN EXECUTE (v_filelist_sql)
       LOOP
         RAISE NOTICE 'Processing log file - %', v_filename;
 
-        IF v_enable_csv = TRUE THEN
-          -- Dynamically checking the file name pattern so that both allowed file names patters are parsed
-          IF v_filename like 'postgresql.log.____-__-__-____.csv' THEN
-            v_dt=substring(v_filename from 'postgresql.log.#"%#"-____.csv' for '#')::timestamp + INTERVAL '1 HOUR' * (substring(v_filename from 'postgresql.log.____-__-__-#"%#"__.csv' for '#')::int);
-            v_dt_max = v_dt + INTERVAL '1 HOUR';
-            v_dt=substring(v_filename from 'postgresql.log.#"%#"-____.csv' for '#')::timestamp + INTERVAL '1 HOUR' * (substring(v_filename from 'postgresql.log.____-__-__-#"%#"__.csv' for '#')::int) + INTERVAL '1 MINUTE' * (substring(v_filename from 'postgresql.log.____-__-__-__#"%#".csv' for '#')::int);
-          ELSIF v_filename like 'postgresql.log.____-__-__-__.csv' THEN
-            v_dt=substring(v_filename from 'postgresql.log.#"%#"-__.csv' for '#')::timestamp + INTERVAL '1 HOUR' * (substring(v_filename from 'postgresql.log.____-__-__-#"%#".csv' for '#')::int);
-            v_dt_max = v_dt + INTERVAL '1 HOUR';
-          ELSIF v_filename like 'postgresql.log.____-__-__.csv' THEN
-            v_dt=substring(v_filename from 'postgresql.log.#"%#".csv' for '#')::timestamp;
-            v_dt_max = v_dt + INTERVAL '1 DAY';
+        IF v_filesize_bytes < 512 * 1024 * 1024 THEN
+          IF v_enable_csv = TRUE THEN
+            -- Dynamically checking the file name pattern so that both allowed file names patters are parsed
+            IF v_filename like 'postgresql.log.____-__-__-____.csv' THEN
+              v_dt=substring(v_filename from 'postgresql.log.#"%#"-____.csv' for '#')::timestamp + INTERVAL '1 HOUR' * (substring(v_filename from 'postgresql.log.____-__-__-#"%#"__.csv' for '#')::int);
+              v_dt_max = v_dt + INTERVAL '1 HOUR';
+              v_dt=substring(v_filename from 'postgresql.log.#"%#"-____.csv' for '#')::timestamp + INTERVAL '1 HOUR' * (substring(v_filename from 'postgresql.log.____-__-__-#"%#"__.csv' for '#')::int) + INTERVAL '1 MINUTE' * (substring(v_filename from 'postgresql.log.____-__-__-__#"%#".csv' for '#')::int);
+            ELSIF v_filename like 'postgresql.log.____-__-__-__.csv' THEN
+              v_dt=substring(v_filename from 'postgresql.log.#"%#"-__.csv' for '#')::timestamp + INTERVAL '1 HOUR' * (substring(v_filename from 'postgresql.log.____-__-__-#"%#".csv' for '#')::int);
+              v_dt_max = v_dt + INTERVAL '1 HOUR';
+            ELSIF v_filename like 'postgresql.log.____-__-__.csv' THEN
+              v_dt=substring(v_filename from 'postgresql.log.#"%#".csv' for '#')::timestamp;
+              v_dt_max = v_dt + INTERVAL '1 DAY';
+            ELSE
+              RAISE NOTICE '        Skipping file';
+              CONTINUE;
+            END IF;
           ELSE
-            RAISE NOTICE '        Skipping file';
-            CONTINUE;
+            IF v_filename like 'postgresql.log.____-__-__-____' THEN
+              v_dt=substring(v_filename from 'postgresql.log.#"%#"-____' for '#')::timestamp + INTERVAL '1 HOUR' * (substring(v_filename from 'postgresql.log.____-__-__-#"%#"__' for '#')::int) + INTERVAL '1 MINUTE' * (substring(v_filename from 'postgresql.log.____-__-__-__#"%#"' for '#')::int);
+            ELSIF v_filename like 'postgresql.log.____-__-__-__' THEN
+              v_dt=substring(v_filename from 'postgresql.log.#"%#"-__' for '#')::timestamp + INTERVAL '1 HOUR' * (substring(v_filename from 'postgresql.log.____-__-__-#"%#"' for '#')::int);
+            ELSIF v_filename like 'postgresql.log.____-__-__' THEN
+              v_dt=substring(v_filename from 'postgresql.log.#"%#"' for '#')::timestamp;
+            ELSE
+              RAISE NOTICE '        Skipping file';
+              CONTINUE;
+            END IF;
           END IF;
-        ELSE
-          IF v_filename like 'postgresql.log.____-__-__-____' THEN
-            v_dt=substring(v_filename from 'postgresql.log.#"%#"-____' for '#')::timestamp + INTERVAL '1 HOUR' * (substring(v_filename from 'postgresql.log.____-__-__-#"%#"__' for '#')::int) + INTERVAL '1 MINUTE' * (substring(v_filename from 'postgresql.log.____-__-__-__#"%#"' for '#')::int);
-          ELSIF v_filename like 'postgresql.log.____-__-__-__' THEN
-            v_dt=substring(v_filename from 'postgresql.log.#"%#"-__' for '#')::timestamp + INTERVAL '1 HOUR' * (substring(v_filename from 'postgresql.log.____-__-__-#"%#"' for '#')::int);
-          ELSIF v_filename like 'postgresql.log.____-__-__' THEN
-            v_dt=substring(v_filename from 'postgresql.log.#"%#"' for '#')::timestamp;
-          ELSE
-            RAISE NOTICE '        Skipping file';
-            CONTINUE;
+          v_partition_name=CONCAT(v_table_name, '_', to_char(v_dt, 'YYYYMMDD_HH24MI'));
+          EXECUTE FORMAT('/* metis */ SELECT public.create_foreign_table_for_log_file(%L, %L, %L)', v_partition_name, v_server_name, v_filename);
+  
+          IF v_table_exists = 0 THEN
+            EXECUTE FORMAT('CREATE TABLE %I (LIKE %I INCLUDING ALL)', v_table_name, v_partition_name);
+            v_table_exists = 1;
+          END IF;
+  
+          EXECUTE FORMAT('ALTER TABLE %I INHERIT %I', v_partition_name, v_table_name);
+  
+          IF v_enable_csv = TRUE THEN
+            EXECUTE FORMAT('ALTER TABLE %I ADD CONSTRAINT check_date_range CHECK (log_time>=%L and log_time < %L)', v_partition_name, v_dt, v_dt_max);
           END IF;
         END IF;
-        v_partition_name=CONCAT(v_table_name, '_', to_char(v_dt, 'YYYYMMDD_HH24MI'));
-        EXECUTE FORMAT('/* metis */ SELECT public.create_foreign_table_for_log_file(%L, %L, %L)', v_partition_name, v_server_name, v_filename);
-
-        IF v_table_exists = 0 THEN
-          EXECUTE FORMAT('CREATE TABLE %I (LIKE %I INCLUDING ALL)', v_table_name, v_partition_name);
-          v_table_exists = 1;
-        END IF;
-
-        EXECUTE FORMAT('ALTER TABLE %I INHERIT %I', v_partition_name, v_table_name);
-
-        IF v_enable_csv = TRUE THEN
-          EXECUTE FORMAT('ALTER TABLE %I ADD CONSTRAINT check_date_range CHECK (log_time>=%L and log_time < %L)', v_partition_name, v_dt, v_dt_max);
-        END IF;
-
       END LOOP;
       
       EXECUTE FORMAT('CREATE INDEX IF NOT EXISTS logs_log_time ON %I.%I(log_time)', v_schema_name, v_table_name);

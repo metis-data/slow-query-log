@@ -6,10 +6,12 @@
 
 ## Overview
 
-This is a Metis complementary package that enables postgres slow query log and auto analyze.
-Using postgres extension file_fdw/log_fdw it collects relevant queries from databases instrumented by postgres instrumentation 
-(available in Metis SDKs), having sql commenter enabled and writing traceparent comment on queries.
-Those queries are exported to Metis platform to be analyzed and monitored.
+This is a Metis package that enables postgres slow query log and auto analyze.
+Using postgres extensions pg_store_plans/file_fdw/log_fdw it collects relevant queries from databases along with their execution plans.
+Those queries can be exported to Metis platform to be analyzed and monitored.
+The extension that will be used is pg_store_plans if available, or file_fdw/log_fdw.
+Our recommendation is to set log_min_duration_statement to 10, to avoid logging relative fast queries 
+and log_statement_sample_rate to 0.01 to reduce log files size. Files above 512mb are consider to be too large and are not supported at the moment.
 
 **Note:** compute_query_id flag which is part of the feature is available from postgres version 14 or later.
 
@@ -28,6 +30,7 @@ npm install --save @metis-data/slow-query-log
 import { MetisSqlCollector } from '@metis-data/slow-query-log';
 
 const metis = new MetisSqlCollector({ autoRun: true });
+await metis.setup();
 ```
 
 ```typescript
@@ -35,23 +38,23 @@ const metis = new MetisSqlCollector({ autoRun: true });
 import { MetisSqlCollector } from '@metis-data/slow-query-log';
 
 const metis = new MetisSqlCollector();
+await metis.setup();
 
 // Call this function to send slow query logs from last 2 log files 
 // with logs that added after the last call to run(), (or 1 minute on first call)
-metis.run();
+await metis.run();
 ```
 
 - Options: 
 
     Options can be set from the constructor or from environment variables
     - autoRun: will send slow query log automatically every 1 minute, if set to false, calls to run() should be handled manually
+    - exportResults: if true, will send each run() call results to Metis platform
     - connectionString: database url, must be set from this configuration or DATABASE_URL
     - metisApiKey: api key generated from metis platform, must be set from this configuration or METIS_API_KEY
     - logFetchInterval: intervals of fetching logs by millisecond, 1 minute by default
     - serviceName: service name to appear on Metis platform, "default" string by default 
-    - debug: boolean, if true prints logs to provided logger or to console by default
-    - logger: must implement log and error functions, by default ```{ log: console.log, error: console.error }``` 
-      and will log "log" level only with debug: true
+    - logger: must implement log and error functions, by default ```{ log: console.log, error: console.error }```
 
 - Environment variables:
 
@@ -60,7 +63,6 @@ metis.run();
     - METIS_API_KEY: same as options.metisApiKey
     - LOG_FETCH_INTERVAL: same as options.logFetchInterval
     - METIS_SERVICE_NAME: same as options.serviceName
-    - METIS_DEBUG: same as options.debug
 
 - Database setup:
 
@@ -69,23 +71,24 @@ metis.run();
 
     For managed databases (like aws rds) the next parameters must be set: 
 
-| parameter                          | value                            | db needs restart? |
-|------------------------------------|----------------------------------|-------------------|
-| shared_preload_libraries           | auto_explain                     | yes               |
-| logging_collector                  | 'on'                             | yes (locally)     |
-| log_destination                    | 'csvlog'                         | yes (locally)     |
-| log_filename                       | 'postgresql.log.%Y-%m-%d-%H'     | yes (locally)     |
-| log_rotation_age                   | 60                               | yes (locally)     |
-| auto_explain.log_min_duration      | 0                                | no                |
-| auto_explain.log_format            | 'json'                           | no                |
-| auto_explain.log_analyze           | true                             | no                |
-| auto_explain.log_buffers           | true                             | no                |
-| auto_explain.log_timing            | true                             | no                |
-| auto_explain.log_verbose           | true                             | no                |
-| auto_explain.log_nested_statements | true                             | no                |
-| log_statement                      | 'mod'                            | no                |
-| log_min_duration_statement         | 0                                | no                |
-| compute_query_id                   | 'on'                             | no                |
+| parameter                          | value                        | db needs restart? |
+|------------------------------------|------------------------------|-------------------|
+| shared_preload_libraries           | auto_explain                 | yes               |
+| logging_collector                  | 'on'                         | yes (locally)     |
+| log_destination                    | 'csvlog'                     | yes (locally)     |
+| log_filename                       | 'postgresql.log.%Y-%m-%d-%H' | yes (locally)     |
+| log_rotation_age                   | 60                           | yes (locally)     |
+| auto_explain.log_min_duration      | 10                           | no                |
+| auto_explain.log_format            | 'json'                       | no                |
+| auto_explain.log_analyze           | true                         | no                |
+| auto_explain.log_buffers           | true                         | no                |
+| auto_explain.log_timing            | true                         | no                |
+| auto_explain.log_verbose           | true                         | no                |
+| auto_explain.log_nested_statements | true                         | no                |
+| log_statement                      | 'mod'                        | no                |
+| log_statement_sample_rate          | 0.01                         | no                |
+| log_min_duration_statement         | 10                           | no                |
+| compute_query_id                   | 'on'                         | no                |
 
 - RDS setup using aws cli:
     If it is the first time of enabling postgres logs on RDS, a new parameter group should be created with logging_collector=on.
@@ -100,10 +103,11 @@ metis.run();
         "ParameterName=log_filename,ParameterValue=postgresql.log.%Y-%m-%d-%H,ApplyMethod=immediate" \
         "ParameterName=log_rotation_age,ParameterValue=60,ApplyMethod=immediate" \
         "ParameterName=log_statement,ParameterValue=mod,ApplyMethod=immediate" \
-        "ParameterName=log_min_duration_statement,ParameterValue=0,ApplyMethod=immediate" \
+        "ParameterName=log_statement_sample_rate,ParameterValue=0.01,ApplyMethod=immediate" \
+        "ParameterName=log_min_duration_statement,ParameterValue=10,ApplyMethod=immediate" \
         "ParameterName=compute_query_id,ParameterValue=on,ApplyMethod=immediate" \
         "ParameterName=auto_explain.log_format,ParameterValue=json,ApplyMethod=immediate" \
-        "ParameterName=auto_explain.log_min_duration,ParameterValue=0,ApplyMethod=immediate" \
+        "ParameterName=auto_explain.log_min_duration,ParameterValue=10,ApplyMethod=immediate" \
         "ParameterName=auto_explain.log_analyze,ParameterValue=true,ApplyMethod=immediate" \
         "ParameterName=auto_explain.log_buffers,ParameterValue=true,ApplyMethod=immediate" \
         "ParameterName=auto_explain.log_timing,ParameterValue=true,ApplyMethod=immediate" \
@@ -135,10 +139,11 @@ metis.run();
             -c log_filename=postgresql.log.%Y-%m-%d-%H 
             -c log_rotation_age=60
             -c log_statement=mod
-            -c log_min_duration_statement=0
+            -c log_statement_sample_rate=0.01
+            -c log_min_duration_statement=10
             -c compute_query_id=on
             -c auto_explain.log_format=json
-            -c auto_explain.log_min_duration=0
+            -c auto_explain.log_min_duration=10
             -c auto_explain.log_analyze=true
             -c auto_explain.log_buffers=true
             -c auto_explain.log_timing=true

@@ -166,16 +166,25 @@ export class MetisSqlCollector {
     let result = [];
     let counter = 0;
     for (const item of data) {
-      if (counter + item.length > limit) {
+      if (item.length > limit) {
+        const diff = limit - counter;
+        result.push(item.substring(0, diff));
+        yield result;
+        result = [item.substring(diff)];
+        counter = item.substring(diff).length;
+      } else if (counter + item.length > limit) {
         yield result;
         counter = 0;
-        result = [];
+        result = [item];
       } else {
         counter += item.length;
         result.push(item);
       }
     }
-    yield result;
+
+    if (result.length) {
+      yield result;
+    }
   }
 
   private async post(url: string, data: string, options: any): Promise<Response> {

@@ -16,7 +16,6 @@ export type MetisSqlCollectorOptions = {
   serviceName?: string;
   exportResults?: boolean;
   logger?: any;
-  debug?: boolean;
   autoRun?: boolean;
 };
 
